@@ -1,5 +1,10 @@
 #include "ast.h"
 
+std::unique_ptr<LLVMContext> TheContext;
+std::unique_ptr<IRBuilder<>> Builder;
+std::unique_ptr<Module> TheModule;
+std::map<std::string, Value *> NamedValues;
+
 ExprAST::~ExprAST() = default;
 NumberExprAST::NumberExprAST(double Val) : Val(Val) {}
 VariableExprAST::VariableExprAST(const std::string &Name) : Name(Name) {}
@@ -21,6 +26,4 @@ std::unique_ptr<ExprAST> log_error(const char *Str) {
   return nullptr;
 }
 
-std::string PrototypeAST::get_name() {
-  return Name;
-}
+std::string PrototypeAST::get_name() { return Name; }

@@ -3,12 +3,6 @@
 #include "lex.h"
 #include <map>
 
-std::unique_ptr<LLVMContext> TheContext;
-std::unique_ptr<IRBuilder<>> Builder;
-std::unique_ptr<Module> TheModule;
-std::map<std::string, Value *> NamedValues;
-
-
 static int cur_tok;
 static int get_next_token() { return cur_tok = gettok(); }
 

@@ -12,11 +12,6 @@
 #include <memory>
 
 
-std::unique_ptr<LLVMContext> TheContext;
-std::unique_ptr<IRBuilder<>> Builder;
-std::unique_ptr<Module> TheModule;
-std::map<std::string, Value *> NamedValues;
-
 Value *log_error_v(const char *Str) {
   log_error(Str);
   return nullptr;

@@ -1,9 +1,11 @@
 CXX = clang++
-CXXFLAGS = -Wall -std=c++20 -g -I/opt/homebrew/opt/llvm/include -I/opt/homebrew/opt/llvm/include/c++/v1
+FILES = parser.cpp lex.cpp ast.cpp codegen.cpp
+CXXFLAGS = -g -O3 -Wall -std=c++20
+LLVM_CONF = llvm-config --cxxflags --ldflags --system-libs --libs core
 TARGET = parser
 
 $(TARGET): 
-	$(CXX) $(CXXFLAGS) $(TARGET).cpp lex.cpp ast.cpp codegen.cpp -o $(TARGET)
+	$(CXX) `$(LLVM_CONF)` $(CXXFLAGS) $(FILES) -o $(TARGET)
 
 # Clean rule to remove generated files
 clean:
