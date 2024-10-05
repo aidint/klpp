@@ -1,25 +1,11 @@
+#include "lex.h"
 #include <cstdlib>
-#include <iostream>
+#include <string>
 
-// The lexer returns tokens [0-255] if it is an unknown character, otherwise one
-// of these for known things.
-enum Token {
-  tok_eof = -1,
+std::string identifier_str;
+double num_val;
 
-  // commands
-  tok_def = -2,
-  tok_extern = -3,
-
-  // primary
-  tok_identifier = -4,
-  tok_number = -5,
-};
-
-static std::string identifier_str; // Filled in if tok_identifier
-static double num_val;             // Filled in if tok_number
-//
-
-static int gettok() {
+int gettok() {
   static int last_char = ' ';
 
   while (isspace(last_char))
@@ -77,3 +63,29 @@ static int gettok() {
   return this_char;
 }
 
+// int main() {
+//   int tok;
+//   while ((tok = gettok()) != tok_eof) {
+//   switch (tok) {
+//     case tok_def:
+//       printf("tok_def\n");
+//       break;
+//     case tok_extern:
+//       printf("tok_extern\n");
+//       break;
+//     case tok_identifier:
+//       printf("tok_identifier: %s\n", identifier_str.c_str());
+//       break;
+//     case tok_number:
+//       printf("tok_number: %f\n", num_val);
+//       break;
+//     case tok_eof:
+//       printf("tok_eof\n");
+//       break;
+//     default:
+//       printf("other: %c\n", tok);
+//       break;
+//     }
+//   }
+//   return 0;
+// }
