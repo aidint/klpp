@@ -1,21 +1,23 @@
 #ifndef AST_H
 #define AST_H
 
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Value.h"
+#include "llvm/IR/PassManager.h"
+#include "llvm/Passes/PassBuilder.h"
+#include "llvm/Analysis/LoopAnalysisManager.h"
+#include "llvm/Passes/StandardInstrumentations.h"
+#include "include/Kaleidoscope.h"
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/Value.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/Module.h"
-#include <map>
 
 using namespace llvm;
+using namespace llvm::orc;
 
-extern std::unique_ptr<LLVMContext> TheContext;
-extern std::unique_ptr<IRBuilder<>> Builder;
-extern std::unique_ptr<Module> TheModule;
-extern std::map<std::string, Value *> NamedValues;
 
 Value *log_error_v(const char *Str);
 
@@ -81,7 +83,20 @@ public:
   Function *codegen();
 };
 
-
 std::unique_ptr<ExprAST> log_error(const char *Str);
+extern std::unique_ptr<LLVMContext> TheContext;
+extern std::unique_ptr<IRBuilder<>> Builder;
+extern std::unique_ptr<Module> TheModule;
+extern std::map<std::string, Value *> NamedValues;
+extern std::unique_ptr<KaleidoscopeJIT> TheJIT;
+extern std::unique_ptr<FunctionPassManager> TheFPM;
+extern std::unique_ptr<LoopAnalysisManager> TheLAM;
+extern std::unique_ptr<FunctionAnalysisManager> TheFAM;
+extern std::unique_ptr<CGSCCAnalysisManager> TheCGAM;
+extern std::unique_ptr<ModuleAnalysisManager> TheMAM;
+extern std::unique_ptr<PassInstrumentationCallbacks> ThePIC;
+extern std::unique_ptr<StandardInstrumentations> TheSI;
+extern std::map<std::string, std::unique_ptr<PrototypeAST>> FunctionProtos;
+extern ExitOnError ExitOnErr;
 
 #endif

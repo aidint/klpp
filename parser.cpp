@@ -1,7 +1,13 @@
 #include "parser.h"
 #include "ast.h"
 #include "lex.h"
+#include "llvm/Support/TargetSelect.h"
+#include "llvm/Transforms/InstCombine/InstCombine.h"
+#include "llvm/Transforms/Scalar/GVN.h"
+#include "llvm/Transforms/Scalar/Reassociate.h"
+#include "llvm/Transforms/Scalar/SimplifyCFG.h"
 #include <map>
+#include <memory>
 
 static int cur_tok;
 static int get_next_token() { return cur_tok = gettok(); }
@@ -217,11 +223,36 @@ static std::unique_ptr<FunctionAST> parse_top_level_expression() {
 // Top level parsing
 //
 //
-static void initialize_module() {
+static void initialize_modules_and_managers() {
   // Open a new context and module.
 
   TheContext = std::make_unique<LLVMContext>();
-  TheModule = std::make_unique<Module>("my cool jit", *TheContext);
+  TheModule = std::make_unique<Module>("my first jit", *TheContext);
+
+  TheModule->setDataLayout(TheJIT->getDataLayout());
+
+  TheFPM = std::make_unique<FunctionPassManager>();
+  TheLAM = std::make_unique<LoopAnalysisManager>();
+  TheFAM = std::make_unique<FunctionAnalysisManager>();
+  TheCGAM = std::make_unique<CGSCCAnalysisManager>();
+  TheMAM = std::make_unique<ModuleAnalysisManager>();
+  ThePIC = std::make_unique<PassInstrumentationCallbacks>();
+  TheSI = std::make_unique<StandardInstrumentations>(*TheContext, true);
+
+  TheSI->registerCallbacks(*ThePIC, TheMAM.get());
+
+  // Add passes
+  TheFPM->addPass(InstCombinePass());
+  TheFPM->addPass(ReassociatePass());
+  TheFPM->addPass(GVNPass());
+  TheFPM->addPass(SimplifyCFGPass());
+
+  PassBuilder PB;
+  PB.registerModuleAnalyses(*TheMAM);
+  PB.registerFunctionAnalyses(*TheFAM);
+  PB.crossRegisterProxies(
+      *TheLAM, *TheFAM, *TheCGAM,
+      *TheMAM); // I don't know why the other two were registerd separately
 
   // Create a new builder for the module.
   Builder = std::make_unique<IRBuilder<>>(*TheContext);
@@ -287,11 +318,18 @@ static void main_loop() {
 }
 
 int main() {
+  InitializeNativeTarget();
+  InitializeNativeTargetAsmPrinter();
+  InitializeNativeTargetAsmParser();
+
+  TheJIT = ExitOnErr(KaleidoscopeJIT::Create());
+  auto DL = TheJIT->getDataLayout();
+  fprintf(stderr, "hello: %s\n", DL.getStringRepresentation().c_str());
   // Prime the first token.
   fprintf(stderr, "ready> ");
   get_next_token();
 
-  initialize_module(); 
+  initialize_modules_and_managers();
 
   // Run the main "interpreter loop" now.
   main_loop();

@@ -108,6 +108,7 @@ Function *FunctionAST::codegen() {
   if (Value *ret_value = Body->codegen()) {
     Builder->CreateRet(ret_value);
     verifyFunction(*F);
+    TheFPM->run(*F, *TheFAM);
     return F;
   }
   F->eraseFromParent();
