@@ -36,4 +36,4 @@ std::unique_ptr<ExprAST> log_error(const char *Str) {
   return nullptr;
 }
 
-std::string PrototypeAST::get_name() { return Name; }
+const std::string &PrototypeAST::get_name() { return Name; }

@@ -10,6 +10,20 @@
 #include <map>
 #include <memory>
 
+// Loading C code into JIT address space
+#ifdef _WIN32
+#define DLLEXPORT __declspec(dllexport)
+#else
+#define DLLEXPORT
+#endif
+
+/// putchard - putchar that takes a double and returns 0.
+extern "C" DLLEXPORT double putchard(double X) {
+  fputc((char)X, stderr);
+  return 0;
+}
+
+// The main code
 static int cur_tok;
 static int get_next_token() { return cur_tok = gettok(); }
 
@@ -215,7 +229,8 @@ static std::unique_ptr<PrototypeAST> parse_extern() {
 static std::unique_ptr<FunctionAST> parse_top_level_expression() {
   if (auto E = parse_expression()) {
     // Make an anonymous proto.
-    auto proto = std::make_unique<PrototypeAST>("__anon_expr", std::vector<std::string>());
+    auto proto = std::make_unique<PrototypeAST>("__anon_expr",
+                                                std::vector<std::string>());
     return std::make_unique<FunctionAST>(std::move(proto), std::move(E));
   }
   return nullptr;
@@ -264,6 +279,9 @@ static void handle_definition() {
     if (auto *IR = func->codegen()) {
       fprintf(stderr, "Read function definition:\n");
       IR->print(errs());
+      ExitOnErr(TheJIT->addModule(
+          ThreadSafeModule(std::move(TheModule), std::move(TheContext))));
+      initialize_modules_and_managers();
     }
   } else {
     // Skip token for error recovery.
@@ -276,6 +294,7 @@ static void handle_extern() {
     if (auto *extIR = ext->codegen()) {
       fprintf(stderr, "Read a function declaration:\n");
       extIR->print(errs());
+      FunctionProtos[ext->get_name()] = std::move(ext);
     }
   } else {
     // Skip token for error recovery.
@@ -289,7 +308,6 @@ static void handle_top_level_expression() {
     if (expr->codegen()) {
 
       auto RT = TheJIT->getMainJITDylib().createResourceTracker();
-
       auto TSM = ThreadSafeModule(std::move(TheModule), std::move(TheContext));
       ExitOnErr(TheJIT->addModule(std::move(TSM), RT));
       initialize_modules_and_managers();
@@ -297,10 +315,8 @@ static void handle_top_level_expression() {
       auto expr_symbol = ExitOnErr(TheJIT->lookup("__anon_expr"));
 
       auto fp = expr_symbol.getAddress().toPtr<double (*)()>();
-      
 
       fprintf(stderr, "Evaluated to: %lf\n", fp());
-      
       ExitOnErr(RT->remove());
     }
   } else {
@@ -338,11 +354,11 @@ int main() {
 
   TheJIT = ExitOnErr(KaleidoscopeJIT::Create());
   initialize_modules_and_managers();
-  
+
   // Prime the first token.
   fprintf(stderr, "ready> ");
   get_next_token();
-  
+
   // Run the main "interpreter loop" now.
   main_loop();
 

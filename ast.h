@@ -69,7 +69,7 @@ class PrototypeAST {
 
 public:
   PrototypeAST(const std::string &Name, std::vector<std::string> Args);
-  std::string get_name();
+  const std::string &get_name();
   Function *codegen();
 };
 

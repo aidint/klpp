@@ -11,6 +11,17 @@
 #include <format>
 #include <memory>
 
+Function *get_function(const std::string &name) {
+  if (auto *f = TheModule->getFunction(name))
+    return f;
+
+  auto FI = FunctionProtos.find(name);
+  if (FI != FunctionProtos.end())
+    return FI->second->codegen();
+
+  return nullptr;
+
+}
 
 Value *log_error_v(const char *Str) {
   log_error(Str);
@@ -51,7 +62,7 @@ Value *BinaryExprAST::codegen() {
 }
 
 Value *CallExprAST::codegen() {
-  Function *CalleeF = TheModule->getFunction(Callee);
+  Function *CalleeF = get_function(Callee);
   if (!CalleeF)
     return log_error_v(
         std::format("Unknown function {} referenced", Callee).c_str());
@@ -85,10 +96,11 @@ Function *PrototypeAST::codegen() {
 }
 
 Function *FunctionAST::codegen() {
-  Function *F = TheModule->getFunction(Proto->get_name());
 
-  if (!F)
-    F = Proto->codegen();
+  auto &p = *Proto;
+  FunctionProtos[Proto->get_name()] = std::move(Proto);
+
+  Function *F = get_function(p.get_name());
 
   if (!F)
     return nullptr;
@@ -114,4 +126,3 @@ Function *FunctionAST::codegen() {
   F->eraseFromParent();
   return nullptr;
 }
-
