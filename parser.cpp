@@ -6,6 +6,7 @@
 #include "llvm/Transforms/Scalar/GVN.h"
 #include "llvm/Transforms/Scalar/Reassociate.h"
 #include "llvm/Transforms/Scalar/SimplifyCFG.h"
+#include <cassert>
 #include <map>
 #include <memory>
 
@@ -214,7 +215,7 @@ static std::unique_ptr<PrototypeAST> parse_extern() {
 static std::unique_ptr<FunctionAST> parse_top_level_expression() {
   if (auto E = parse_expression()) {
     // Make an anonymous proto.
-    auto proto = std::make_unique<PrototypeAST>("", std::vector<std::string>());
+    auto proto = std::make_unique<PrototypeAST>("__anon_expr", std::vector<std::string>());
     return std::make_unique<FunctionAST>(std::move(proto), std::move(E));
   }
   return nullptr;
@@ -285,9 +286,22 @@ static void handle_extern() {
 static void handle_top_level_expression() {
   // Evaluate a top-level expression into an anonymous function.
   if (auto expr = parse_top_level_expression()) {
-    if (auto *exprIR = expr->codegen()) {
-      fprintf(stderr, "Read top level expression:\n");
-      exprIR->print(errs());
+    if (expr->codegen()) {
+
+      auto RT = TheJIT->getMainJITDylib().createResourceTracker();
+
+      auto TSM = ThreadSafeModule(std::move(TheModule), std::move(TheContext));
+      ExitOnErr(TheJIT->addModule(std::move(TSM), RT));
+      initialize_modules_and_managers();
+
+      auto expr_symbol = ExitOnErr(TheJIT->lookup("__anon_expr"));
+
+      auto fp = expr_symbol.getAddress().toPtr<double (*)()>();
+      
+
+      fprintf(stderr, "Evaluated to: %lf\n", fp());
+      
+      ExitOnErr(RT->remove());
     }
   } else {
     // Skip token for error recovery.
@@ -323,14 +337,12 @@ int main() {
   InitializeNativeTargetAsmParser();
 
   TheJIT = ExitOnErr(KaleidoscopeJIT::Create());
-  auto DL = TheJIT->getDataLayout();
-  fprintf(stderr, "hello: %s\n", DL.getStringRepresentation().c_str());
+  initialize_modules_and_managers();
+  
   // Prime the first token.
   fprintf(stderr, "ready> ");
   get_next_token();
-
-  initialize_modules_and_managers();
-
+  
   // Run the main "interpreter loop" now.
   main_loop();
 
