@@ -27,6 +27,12 @@ int gettok() {
       return tok_then;
     else if (identifier_str == "else")
       return tok_else;
+    else if (identifier_str == "for")
+      return tok_for;
+    else if (identifier_str == "do")
+      return tok_do;
+    else if (identifier_str == "end")
+      return tok_end;
     return tok_identifier;
   }
 

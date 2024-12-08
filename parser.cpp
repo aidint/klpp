@@ -51,7 +51,7 @@ static std::unique_ptr<ExprAST> parse_if_expr() {
 
   if (cur_tok != tok_then)
     return log_error("expected `then`");
-  get_next_token(); //eat then
+  get_next_token(); // eat then
 
   auto then = parse_expression();
   if (!then)
@@ -59,7 +59,7 @@ static std::unique_ptr<ExprAST> parse_if_expr() {
 
   std::unique_ptr<ExprAST> else_;
   if (cur_tok == tok_else) {
-    get_next_token(); //eat else
+    get_next_token(); // eat else
     else_ = parse_expression();
     if (!else_)
       return nullptr;
@@ -68,6 +68,62 @@ static std::unique_ptr<ExprAST> parse_if_expr() {
 
   return std::make_unique<IfExprAST>(std::move(cond), std::move(then),
                                      std::move(else_));
+}
+
+static std::unique_ptr<ExprAST> parse_for_expr() {
+
+  get_next_token(); // eat for
+
+  if (cur_tok != tok_identifier)
+    return log_error("Expected identifier after `for`");
+
+  auto var = identifier_str;
+  get_next_token(); // eat identifier
+
+  if (cur_tok != '=')
+    return log_error("Expected `=` after identifier for initialization.");
+
+  get_next_token(); // eat =
+
+  auto start = parse_expression();
+  if (!start)
+    return log_error("Error parsing initialization in for statement.");
+
+  if (cur_tok != ',')
+    return log_error(
+        "Missing ',' separtor in for statement after initialization.");
+
+  get_next_token(); // eat ,
+
+  auto condition = parse_expression();
+  if (!condition)
+    return log_error("Error parsing condition in for statement.");
+
+  if (cur_tok != ',')
+    return log_error("Missing ',' separtor in for statement after condition.");
+
+  get_next_token(); // eat ,
+
+  auto step = parse_expression();
+  if (!step)
+    return log_error("Error parsing step in for statement.");
+
+  if (cur_tok != tok_do)
+    return log_error("Expected `do` in for statement.");
+
+  get_next_token(); // eat do
+
+  auto body = parse_expression();
+  if (!body)
+    return log_error("Error parsing body in for statement.");
+
+  if (cur_tok != tok_end)
+    return log_error("Missing `end`.");
+
+  get_next_token(); // eat end
+
+  return std::make_unique<ForExpr>(var, std::move(start), std::move(condition),
+                                   std::move(step), std::move(body));
 }
 
 /// identifierexpr
@@ -120,6 +176,8 @@ static std::unique_ptr<ExprAST> parse_primary() {
     return parse_paren_expr();
   case tok_if:
     return parse_if_expr();
+  case tok_for:
+    return parse_for_expr();
   default:
     return log_error("unknown token when expecting an expression");
   }

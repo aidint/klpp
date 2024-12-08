@@ -8,6 +8,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Verifier.h"
+#include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include <format>
 #include <memory>
 
@@ -161,9 +162,61 @@ Value *IfExprAST::codegen() {
 
   f->insert(f->end(), fin_bb);
   Builder->SetInsertPoint(fin_bb);
-  auto *ret_val = Builder->CreatePHI(Type::getDoubleTy(*TheContext), 2, "iftmp");
+  auto *ret_val =
+      Builder->CreatePHI(Type::getDoubleTy(*TheContext), 2, "iftmp");
   ret_val->addIncoming(then_val, then_phi_bb);
   ret_val->addIncoming(else_val, else_phi_bb);
 
   return ret_val;
+}
+
+Value *ForExpr::codegen() {
+
+  Value *start = Start->codegen();
+  if (!start)
+    return nullptr;
+
+  auto *f = Builder->GetInsertBlock()->getParent();
+  auto *first_bb = Builder->GetInsertBlock();
+  auto *loop_bb = BasicBlock::Create(*TheContext, "loop", f);
+  auto *end_bb = BasicBlock::Create(*TheContext, "endfor");
+
+  Builder->CreateBr(loop_bb);
+
+  Builder->SetInsertPoint(loop_bb);
+
+  auto *var = Builder->CreatePHI(Type::getDoubleTy(*TheContext), 2, "loopval");
+  var->addIncoming(start, first_bb);
+
+  Value *old_val = NamedValues[VarName];
+  NamedValues[VarName] = var;
+
+  Value *condition = Condition->codegen();
+  if (!condition)
+    return nullptr;
+  auto *bool_cond = Builder->CreateFCmpONE(
+      condition, ConstantFP::get(*TheContext, APFloat(0.0)), "forcond");
+  auto *branch = Builder->CreateBr(end_bb);
+
+  // Check the condition even on the first iteration
+  auto *then_inst = SplitBlockAndInsertIfThen(bool_cond, branch, false);
+  auto *split_bb = then_inst->getParent();
+  Builder->SetInsertPoint(split_bb);
+  then_inst->eraseFromParent();
+  
+  // generate Body
+  auto *body = Body->codegen();
+  if (!body)
+    return nullptr;
+
+  Value *step = Step->codegen();
+  if (!step)
+    return nullptr;
+  var->addIncoming(Builder->CreateFAdd(var, step), split_bb);
+  Builder->CreateBr(loop_bb);
+
+  f->insert(f->end(), end_bb);
+  Builder->SetInsertPoint(end_bb);
+  NamedValues[VarName] = old_val;
+  return ConstantFP::get(*TheContext, APFloat(0.0));
 }

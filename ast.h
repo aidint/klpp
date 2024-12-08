@@ -94,6 +94,21 @@ public:
   Value *codegen() override;
 };
 
+class ForExpr : public ExprAST {
+  std::string VarName;
+  std::unique_ptr<ExprAST> Start, Condition, Step, Body;
+
+public:
+  ForExpr(std::string VariableName, std::unique_ptr<ExprAST> Start,
+          std::unique_ptr<ExprAST> Condition, std::unique_ptr<ExprAST> Step,
+          std::unique_ptr<ExprAST> Body)
+      : VarName(VariableName), Start(std::move(Start)),
+        Condition(std::move(Condition)), Step(std::move(Step)),
+        Body(std::move(Body)) {}
+
+  Value *codegen() override;
+};
+
 std::unique_ptr<ExprAST> log_error(const char *Str);
 extern std::unique_ptr<LLVMContext> TheContext;
 extern std::unique_ptr<IRBuilder<>> Builder;

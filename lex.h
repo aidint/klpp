@@ -17,6 +17,12 @@ enum Token {
   tok_if = -6,
   tok_then = -7,
   tok_else = -8,
+
+  // for
+  // for var = start, condition, step do top_level_expression end;
+  tok_for = -9,
+  tok_do = -10,
+  tok_end = -11,
 };
 
 int gettok();
