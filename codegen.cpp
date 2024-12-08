@@ -20,7 +20,6 @@ Function *get_function(const std::string &name) {
     return FI->second->codegen();
 
   return nullptr;
-
 }
 
 Value *log_error_v(const char *Str) {
@@ -125,4 +124,46 @@ Function *FunctionAST::codegen() {
   }
   F->eraseFromParent();
   return nullptr;
+}
+
+Value *IfExprAST::codegen() {
+  Value *cond_val = Condition->codegen();
+
+  if (!cond_val)
+    return nullptr;
+
+  auto *bool_cond = Builder->CreateFCmpONE(
+      cond_val, ConstantFP::get(*TheContext, APFloat(0.0)), "ifcond");
+
+  Function *f = Builder->GetInsertBlock()->getParent();
+
+  auto *then_bb = BasicBlock::Create(*TheContext, "then", f);
+  auto *else_bb = BasicBlock::Create(*TheContext, "else");
+  auto *fin_bb = BasicBlock::Create(*TheContext, "finish");
+
+  Builder->CreateCondBr(bool_cond, then_bb, else_bb);
+
+  Builder->SetInsertPoint(then_bb);
+  Value *then_val = Then->codegen();
+  if (!then_val)
+    return nullptr;
+  Builder->CreateBr(fin_bb);
+  auto *then_phi_bb = Builder->GetInsertBlock();
+
+  f->insert(f->end(), else_bb);
+  Builder->SetInsertPoint(else_bb);
+  Value *else_val = Else->codegen();
+  if (!else_val)
+    return nullptr;
+
+  Builder->CreateBr(fin_bb);
+  auto *else_phi_bb = Builder->GetInsertBlock();
+
+  f->insert(f->end(), fin_bb);
+  Builder->SetInsertPoint(fin_bb);
+  auto *ret_val = Builder->CreatePHI(Type::getDoubleTy(*TheContext), 2, "iftmp");
+  ret_val->addIncoming(then_val, then_phi_bb);
+  ret_val->addIncoming(else_val, else_phi_bb);
+
+  return ret_val;
 }

@@ -1,15 +1,15 @@
 #ifndef AST_H
 #define AST_H
 
+#include "include/Kaleidoscope.h"
+#include "llvm/Analysis/LoopAnalysisManager.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
-#include "llvm/IR/Value.h"
 #include "llvm/IR/PassManager.h"
+#include "llvm/IR/Value.h"
 #include "llvm/Passes/PassBuilder.h"
-#include "llvm/Analysis/LoopAnalysisManager.h"
 #include "llvm/Passes/StandardInstrumentations.h"
-#include "include/Kaleidoscope.h"
 #include <map>
 #include <memory>
 #include <string>
@@ -17,7 +17,6 @@
 
 using namespace llvm;
 using namespace llvm::orc;
-
 
 Value *log_error_v(const char *Str);
 
@@ -81,6 +80,18 @@ public:
   FunctionAST(std::unique_ptr<PrototypeAST> Proto,
               std::unique_ptr<ExprAST> Body);
   Function *codegen();
+};
+
+class IfExprAST : public ExprAST {
+  std::unique_ptr<ExprAST> Condition, Then, Else;
+
+public:
+  IfExprAST(std::unique_ptr<ExprAST> Condition, std::unique_ptr<ExprAST> Then,
+            std::unique_ptr<ExprAST> Else)
+      : Condition(std::move(Condition)), Then(std::move(Then)),
+        Else(std::move(Else)) {}
+
+  Value *codegen() override;
 };
 
 std::unique_ptr<ExprAST> log_error(const char *Str);

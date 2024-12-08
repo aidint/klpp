@@ -10,19 +10,6 @@
 #include <map>
 #include <memory>
 
-// Loading C code into JIT address space
-#ifdef _WIN32
-#define DLLEXPORT __declspec(dllexport)
-#else
-#define DLLEXPORT
-#endif
-
-/// putchard - putchar that takes a double and returns 0.
-extern "C" DLLEXPORT double putchard(double X) {
-  fputc((char)X, stderr);
-  return 0;
-}
-
 // The main code
 static int cur_tok;
 static int get_next_token() { return cur_tok = gettok(); }
@@ -52,6 +39,35 @@ static std::unique_ptr<ExprAST> parse_paren_expr() {
     return log_error("expected ')'");
   get_next_token(); // get the token after ')'
   return V;
+}
+
+// ifexpr ::= 'if' 'then' 'else'
+static std::unique_ptr<ExprAST> parse_if_expr() {
+  get_next_token(); // eat if;
+
+  auto cond = parse_expression();
+  if (!cond)
+    return nullptr;
+
+  if (cur_tok != tok_then)
+    return log_error("expected `then`");
+  get_next_token(); //eat then
+
+  auto then = parse_expression();
+  if (!then)
+    return nullptr;
+
+  std::unique_ptr<ExprAST> else_;
+  if (cur_tok == tok_else) {
+    get_next_token(); //eat else
+    else_ = parse_expression();
+    if (!else_)
+      return nullptr;
+  } else
+    else_ = std::make_unique<NumberExprAST>(0);
+
+  return std::make_unique<IfExprAST>(std::move(cond), std::move(then),
+                                     std::move(else_));
 }
 
 /// identifierexpr
@@ -102,6 +118,8 @@ static std::unique_ptr<ExprAST> parse_primary() {
     return parse_number_expr();
   case '(':
     return parse_paren_expr();
+  case tok_if:
+    return parse_if_expr();
   default:
     return log_error("unknown token when expecting an expression");
   }
