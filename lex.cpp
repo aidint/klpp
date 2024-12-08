@@ -1,20 +1,37 @@
 #include "lex.h"
 #include <cstdlib>
 #include <string>
+#define BUFSIZE 100
 
 std::string identifier_str;
+std::string operator_name;
 double num_val;
+static int buf[BUFSIZE];
+static int bufp;
+
+static int get_char() {
+  if (bufp)
+    return buf[--bufp];
+  return getchar();
+}
+
+[[maybe_unused]] static void putback_char(int c) {
+  if (bufp == BUFSIZE)
+    printf("Warning: buffer overflow");
+  else
+    buf[bufp++] = c;
+}
 
 int gettok() {
   static int last_char = ' ';
 
   while (isspace(last_char))
-    last_char = getchar();
+    last_char = get_char();
 
   // State = Identifier
   if (isalpha(last_char)) {
     identifier_str = last_char;
-    while (isalnum((last_char = getchar())))
+    while (isalnum((last_char = get_char())))
       identifier_str += last_char;
 
     if (identifier_str == "def")
@@ -33,6 +50,21 @@ int gettok() {
       return tok_do;
     else if (identifier_str == "end")
       return tok_end;
+    else if (identifier_str == "binary") {
+      operator_name = "";
+      while(last_char != ' ' && last_char != '(') {
+        operator_name += last_char;
+        last_char = get_char();
+      }
+      return operator_name.empty() ? tok_identifier : tok_binary;
+    } else if (identifier_str == "unary") {
+      operator_name = "";
+      while(last_char != ' ' && last_char != '(') {
+        operator_name += last_char;
+        last_char = get_char();
+      }
+      return operator_name.empty() ? tok_identifier : tok_binary;
+    }
     return tok_identifier;
   }
 
@@ -42,7 +74,7 @@ int gettok() {
     bool has_second_point;
     number_string = last_char;
 
-    while (isnumber((last_char = getchar())) || last_char == '.') {
+    while (isnumber((last_char = get_char())) || last_char == '.') {
       if (!has_second_point)
         has_second_point = has_point && last_char == '.';
 
@@ -60,7 +92,7 @@ int gettok() {
 
   if (last_char == '#') {
     do
-      last_char = getchar();
+      last_char = get_char();
     while (last_char != EOF && last_char != '\n' && last_char != '\r');
 
     if (last_char != EOF)
@@ -71,7 +103,7 @@ int gettok() {
     return tok_eof;
 
   int this_char = last_char;
-  last_char = getchar();
+  last_char = get_char();
   return this_char;
 }
 

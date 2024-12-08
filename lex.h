@@ -23,11 +23,16 @@ enum Token {
   tok_for = -9,
   tok_do = -10,
   tok_end = -11,
+
+  // user-defined operators
+  tok_binary = -12,
+  tok_unary = -13,
 };
 
 int gettok();
 
 extern std::string identifier_str; // Filled in if tok_identifier
+extern std::string operator_name;  // Filled in if tok_unary or tok_binary
 extern double num_val;             // Filled in if tok_number
 
 #endif

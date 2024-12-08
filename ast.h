@@ -65,10 +65,17 @@ public:
 class PrototypeAST {
   std::string Name;
   std::vector<std::string> Args;
+  bool IsOperator;
+  unsigned Precedence;
 
 public:
-  PrototypeAST(const std::string &Name, std::vector<std::string> Args);
-  const std::string &get_name();
+  PrototypeAST(const std::string &Name, std::vector<std::string> Args,
+               bool IsOperator = false, unsigned Prec = 0);
+  const std::string &get_name() const;
+  const std::string get_operator_name() const;
+  bool is_unary_op() const;
+  bool is_binary_op() const;
+  unsigned get_binary_precedence() const;
   Function *codegen();
 };
 
@@ -87,9 +94,7 @@ class IfExprAST : public ExprAST {
 
 public:
   IfExprAST(std::unique_ptr<ExprAST> Condition, std::unique_ptr<ExprAST> Then,
-            std::unique_ptr<ExprAST> Else)
-      : Condition(std::move(Condition)), Then(std::move(Then)),
-        Else(std::move(Else)) {}
+            std::unique_ptr<ExprAST> Else);
 
   Value *codegen() override;
 };
@@ -101,11 +106,7 @@ class ForExpr : public ExprAST {
 public:
   ForExpr(std::string VariableName, std::unique_ptr<ExprAST> Start,
           std::unique_ptr<ExprAST> Condition, std::unique_ptr<ExprAST> Step,
-          std::unique_ptr<ExprAST> Body)
-      : VarName(VariableName), Start(std::move(Start)),
-        Condition(std::move(Condition)), Step(std::move(Step)),
-        Body(std::move(Body)) {}
-
+          std::unique_ptr<ExprAST> Body);
   Value *codegen() override;
 };
 

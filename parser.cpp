@@ -258,11 +258,31 @@ static std::unique_ptr<ExprAST> parse_expression() {
 /// prototype
 ///   ::= id '(' id* ')'
 static std::unique_ptr<PrototypeAST> parse_prototype() {
-  if (cur_tok != tok_identifier)
-    return log_error_p("Expected function name in prototype");
 
-  std::string fn_name = identifier_str;
-  get_next_token(); // expect '('
+  std::string fn_name;
+  unsigned char kind = 0;   // 0 = identifier, 1 = unary, 2 = binary
+  unsigned precedence = 30; // default precedence
+
+  switch (cur_tok) {
+  default:
+    return log_error_p("Expected function name in prototype");
+  case tok_identifier:
+    fn_name = identifier_str;
+    get_next_token(); // expect '('
+    break;
+  case tok_binary:
+    fn_name = "binary" + operator_name;
+    kind = 2;
+    get_next_token(); // expect '(' or number
+
+    if (cur_tok == tok_number) {
+      if (num_val < 1 || num_val > 100)
+        return log_error_p("Invalid precedence: must be 1..100");
+      precedence = num_val;
+      get_next_token(); // expect '('
+    }
+    break;
+  }
 
   if (cur_tok != '(')
     return log_error_p("Expected '(' in prototype");
@@ -279,8 +299,11 @@ static std::unique_ptr<PrototypeAST> parse_prototype() {
 
   // success.
   get_next_token(); // eat ')'.
+  //
+  if (kind && arg_names.size() != kind)
+    return log_error_p("Invalid number of operands for operator.");
 
-  return std::make_unique<PrototypeAST>(fn_name, std::move(arg_names));
+  return std::make_unique<PrototypeAST>(fn_name, std::move(arg_names), kind != 0, precedence);
 }
 
 /// definition ::= 'def' prototype expression
