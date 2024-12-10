@@ -8,6 +8,9 @@ TARGET = parser
 $(TARGET): 
 	$(CXX) `$(LLVM_CONF)` $(CXXFLAGS) $(FILES) -o $(TARGET)
 
+lex:
+	$(CXX) `$(LLVM_CONF)` $(DEBUGFLAGS) lex.cpp -o lexer
+
 debug:
 	$(CXX) `$(LLVM_CONF)` $(DEBUGFLAGS) $(FILES) -o $(TARGET)
 

@@ -45,20 +45,42 @@ Value *BinaryExprAST::codegen() {
   if (!L || !R)
     return nullptr;
 
-  switch (Op) {
-  case '+':
+  if (Op == "+")
     return Builder->CreateFAdd(L, R, "addtmp");
-  case '-':
+  if (Op == "-")
     return Builder->CreateFSub(L, R, "subtmp");
-  case '*':
+  if (Op == "*")
     return Builder->CreateFMul(L, R, "multmp");
-  case '<':
+  if (Op == "<") {
     L = Builder->CreateFCmpULT(L, R, "cmptmp");
     // Convert bool 0/1 to double 0.0 or 1.0
     return Builder->CreateUIToFP(L, Type::getDoubleTy(*TheContext), "booltmp");
-  default:
-    return log_error_v("invalid binary operator");
   }
+  if (Op == ">") {
+    L = Builder->CreateFCmpULT(R, L, "cmptmp");
+    return Builder->CreateUIToFP(L, Type::getDoubleTy(*TheContext), "booltmp");
+  }
+
+  auto *f = get_function(std::string("binary") + Op);
+  if (!f)
+    return log_error_v(
+        std::format("Binary operator `{}` not found", Op).c_str());
+
+  Value *Ops[2] = {L, R};
+  return Builder->CreateCall(f, Ops, "binop");
+}
+
+Value *UnaryExprAST::codegen() {
+  auto *f = get_function(std::format("unary{}", Op));
+  if (!f)
+    return log_error_v(
+        std::format("Unary operator {} does not exist.", Op).c_str());
+
+  auto operand = Operand->codegen();
+  if (!operand)
+    return nullptr;
+
+  return Builder->CreateCall(f, operand);
 }
 
 Value *CallExprAST::codegen() {
@@ -124,6 +146,9 @@ Function *FunctionAST::codegen() {
     Builder->CreateRet(ret_value);
     verifyFunction(*F);
     TheFPM->run(*F, *TheFAM);
+
+    if (p.is_binary_op())
+      BINOP_PRECEDENCE[p.get_operator_name()] = p.get_binary_precedence();
     return F;
   }
   F->eraseFromParent();

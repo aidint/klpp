@@ -44,14 +44,24 @@ public:
 };
 
 class BinaryExprAST : public ExprAST {
-  char Op;
+  std::string Op;
   std::unique_ptr<ExprAST> LHS, RHS;
 
 public:
-  BinaryExprAST(char Op, std::unique_ptr<ExprAST> LHS,
+  BinaryExprAST(std::string Op, std::unique_ptr<ExprAST> LHS,
                 std::unique_ptr<ExprAST> RHS);
   Value *codegen() override;
 };
+
+class UnaryExprAST : public ExprAST {
+  std::string Op;
+  std::unique_ptr<ExprAST> Operand;
+
+public:
+  UnaryExprAST(std::string Op, std::unique_ptr<ExprAST> Operand);
+  Value *codegen() override;
+};
+
 
 class CallExprAST : public ExprAST {
   std::string Callee;
@@ -130,4 +140,5 @@ extern std::map<std::string, std::unique_ptr<PrototypeAST>> FunctionProtos;
 extern std::map<std::string, std::unique_ptr<ResourceTrackerSP>> FunctionRTs;
 extern ExitOnError ExitOnErr;
 
+extern std::map<std::string, int> BINOP_PRECEDENCE;
 #endif

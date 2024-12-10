@@ -1,25 +1,73 @@
 #include "lex.h"
 #include <cstdlib>
-#include <string>
 #define BUFSIZE 100
 
 std::string identifier_str;
 std::string operator_name;
+std::unique_ptr<std::ifstream> lex_file;
 double num_val;
 static int buf[BUFSIZE];
 static int bufp;
 
+static bool is_viable_operator_char(char c) {
+  if (c == '!' || c == '$' || c == '%' || c == '&' || c == ':' || c == '*' ||
+      c == '/' || c == '+' || c == '-' || c == '<' || c == '>' || c == '=' ||
+      c == '?' || c == '@' || c == '[' || c == ']' || c == '\\' || c == '^' ||
+      c == '|' || c == '{' || c == '}' || c == '~')
+    return true;
+  return false;
+}
+
 static int get_char() {
   if (bufp)
     return buf[--bufp];
+  if (lex_file && lex_file->is_open()) {
+    char c;
+    lex_file->get(c);
+    return c;
+  } else if (lex_file) 
+    return EOF;
+  
   return getchar();
 }
 
-[[maybe_unused]] static void putback_char(int c) {
+[[maybe_unused]] static char putback_char(int c) {
   if (bufp == BUFSIZE)
     printf("Warning: buffer overflow");
   else
     buf[bufp++] = c;
+  return c;
+}
+
+// {binary | unary}<operator_name>{ }*(.*)
+// returns last_char
+char get_operator(char last_char) {
+  operator_name = "";
+  if (last_char == '`') {
+
+    operator_name += '`';
+    last_char = get_char();
+    while ((isalnum(last_char) || is_viable_operator_char(last_char)) &&
+           last_char != '`') {
+      operator_name += last_char;
+      last_char = get_char();
+    }
+
+    operator_name += last_char;
+    if (last_char != '`' || operator_name == "``") {
+      std::for_each(operator_name.rbegin(), operator_name.rend(), putback_char);
+      operator_name = "";
+    }
+
+    return get_char(); // returns `
+  }
+
+  while (is_viable_operator_char(last_char)) {
+    operator_name += last_char;
+    last_char = get_char();
+  }
+
+  return last_char;
 }
 
 int gettok() {
@@ -51,19 +99,11 @@ int gettok() {
     else if (identifier_str == "end")
       return tok_end;
     else if (identifier_str == "binary") {
-      operator_name = "";
-      while(last_char != ' ' && last_char != '(') {
-        operator_name += last_char;
-        last_char = get_char();
-      }
+      last_char = get_operator(last_char);
       return operator_name.empty() ? tok_identifier : tok_binary;
     } else if (identifier_str == "unary") {
-      operator_name = "";
-      while(last_char != ' ' && last_char != '(') {
-        operator_name += last_char;
-        last_char = get_char();
-      }
-      return operator_name.empty() ? tok_identifier : tok_binary;
+      last_char = get_operator(last_char);
+      return operator_name.empty() ? tok_identifier : tok_unary;
     }
     return tok_identifier;
   }
@@ -99,6 +139,12 @@ int gettok() {
       return gettok();
   }
 
+  if (last_char == '`' || is_viable_operator_char(last_char)) {
+    last_char = get_operator(last_char);
+    if (operator_name != "")
+      return tok_operator;
+  }
+
   if (last_char == EOF)
     return tok_eof;
 
@@ -110,7 +156,7 @@ int gettok() {
 // int main() {
 //   int tok;
 //   while ((tok = gettok()) != tok_eof) {
-//   switch (tok) {
+//     switch (tok) {
 //     case tok_def:
 //       printf("tok_def\n");
 //       break;
@@ -122,6 +168,15 @@ int gettok() {
 //       break;
 //     case tok_number:
 //       printf("tok_number: %f\n", num_val);
+//       break;
+//     case tok_unary:
+//       printf("tok_unary: %s\n", operator_name.c_str());
+//       break;
+//     case tok_binary:
+//       printf("tok_binary: %s\n", operator_name.c_str());
+//       break;
+//     case tok_operator:
+//       printf("tok_operator: %s\n", operator_name.c_str());
 //       break;
 //     case tok_eof:
 //       printf("tok_eof\n");

@@ -7,8 +7,10 @@
 #include "llvm/Transforms/Scalar/Reassociate.h"
 #include "llvm/Transforms/Scalar/SimplifyCFG.h"
 #include <cassert>
+#include <fstream>
 #include <map>
 #include <memory>
+#include <string>
 
 // The main code
 static int cur_tok;
@@ -191,24 +193,37 @@ static std::unique_ptr<ExprAST> parse_primary() {
   }
 }
 
-// Binary Expression Operations
-//
-static std::map<char, int> BINOP_PRECEDENCE = {
-    {'<', 10},
-    {'+', 20},
-    {'-', 20},
-    {'*', 40},
-};
+/// unary
+///   ::= primary
+///   ::= <unary operator>unary
+static std::unique_ptr<ExprAST> parse_unary() {
+  if (cur_tok != tok_operator)
+    return parse_primary();
+
+  std::string op = operator_name;
+  get_next_token();
+
+  // although in this implementation we don't assume operators as single
+  // characters but one can chain these operators by putting a space in between
+  // so:
+  //  !!s == unary!!(s)
+  //  while
+  //  ! ! s == unary!(unary!(s))
+  if (auto operand = parse_unary())
+    return std::make_unique<UnaryExprAST>(op, std::move(operand));
+
+  return nullptr;
+}
 
 static int get_tok_precedence() {
-  if (!isascii(cur_tok))
+  if (cur_tok != tok_operator)
     return -1;
 
   // Make sure it's a declared binop.
-  if (BINOP_PRECEDENCE.find(cur_tok) == BINOP_PRECEDENCE.end())
+  if (BINOP_PRECEDENCE.find(operator_name) == BINOP_PRECEDENCE.end())
     return -1;
 
-  int tok_prec = BINOP_PRECEDENCE[cur_tok];
+  int tok_prec = BINOP_PRECEDENCE[operator_name];
   if (tok_prec <= 0)
     return -1;
   return tok_prec;
@@ -229,11 +244,11 @@ static std::unique_ptr<ExprAST> parse_binop_rhs(int expr_prec,
     if (tok_prec < expr_prec)
       return LHS;
     // Okay, we know this is a binop.
-    int binop = cur_tok;
+    std::string binop = operator_name;
     get_next_token(); // eat binop
 
     // Parse the primary expression after the binary operator.
-    auto RHS = parse_primary();
+    auto RHS = parse_unary();
     if (!RHS)
       return nullptr;
     // If BinOp binds less tightly with RHS than the operator after RHS, let
@@ -256,7 +271,7 @@ static std::unique_ptr<ExprAST> parse_binop_rhs(int expr_prec,
 ///
 
 static std::unique_ptr<ExprAST> parse_expression() {
-  auto LHS = parse_primary();
+  auto LHS = parse_unary();
   if (!LHS)
     return nullptr;
 
@@ -289,6 +304,11 @@ static std::unique_ptr<PrototypeAST> parse_prototype() {
       precedence = num_val;
       get_next_token(); // expect '('
     }
+    break;
+  case tok_unary:
+    fn_name = "unary" + operator_name;
+    kind = 1;
+    get_next_token(); // expect '('
     break;
   }
 
@@ -442,9 +462,11 @@ static void handle_top_level_expression() {
   }
 }
 /// top ::= definition | external | expression | ';'
-static void main_loop() {
+static void main_loop(bool repl = true) {
+  get_next_token();
   while (true) {
-    fprintf(stderr, "ready> ");
+    if (repl)
+      fprintf(stderr, "ready> ");
     switch (cur_tok) {
     case tok_eof:
       return;
@@ -472,11 +494,10 @@ int main() {
   TheJIT = ExitOnErr(KaleidoscopeJIT::Create());
   initialize_modules_and_managers();
 
-  // Prime the first token.
-  fprintf(stderr, "ready> ");
-  get_next_token();
+  auto standard_lib = std::make_unique<std::ifstream>("lib/std.kl");
+  lex_file = std::move(standard_lib);
+  main_loop(/*repl=*/false); // load standard library
 
-  // Run the main "interpreter loop" now.
   main_loop();
 
   // Print out all of the generated code.

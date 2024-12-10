@@ -19,9 +19,13 @@ ExitOnError ExitOnErr;
 ExprAST::~ExprAST() = default;
 NumberExprAST::NumberExprAST(double Val) : Val(Val) {}
 VariableExprAST::VariableExprAST(const std::string &Name) : Name(Name) {}
-BinaryExprAST::BinaryExprAST(char Op, std::unique_ptr<ExprAST> LHS,
+
+// Binary and Unary Expressions
+BinaryExprAST::BinaryExprAST(std::string Op, std::unique_ptr<ExprAST> LHS,
                              std::unique_ptr<ExprAST> RHS)
     : Op(Op), LHS(std::move(LHS)), RHS(std::move(RHS)) {}
+
+UnaryExprAST::UnaryExprAST(std::string Op, std::unique_ptr<ExprAST> Operand) : Op(Op), Operand(std::move(Operand)) {}
 
 // PrototypeAST
 PrototypeAST::PrototypeAST(const std::string &Name,
@@ -72,3 +76,9 @@ std::unique_ptr<ExprAST> log_error(const char *Str) {
   fprintf(stderr, "Error: %s\n", Str);
   return nullptr;
 }
+
+// Binary Expression Operations
+//
+std::map<std::string, int> BINOP_PRECEDENCE = {
+    {"<", 10}, {">", 10}, {"+", 20}, {"-", 20}, {"*", 40},
+};

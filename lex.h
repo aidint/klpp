@@ -1,5 +1,6 @@
 #ifndef LEX_H
 #define LEX_H
+#include <fstream>
 #include <string>
 
 enum Token {
@@ -27,6 +28,7 @@ enum Token {
   // user-defined operators
   tok_binary = -12,
   tok_unary = -13,
+  tok_operator = -14
 };
 
 int gettok();
@@ -34,5 +36,6 @@ int gettok();
 extern std::string identifier_str; // Filled in if tok_identifier
 extern std::string operator_name;  // Filled in if tok_unary or tok_binary
 extern double num_val;             // Filled in if tok_number
+extern std::unique_ptr<std::ifstream> lex_file;
 
 #endif
