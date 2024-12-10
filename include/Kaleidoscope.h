@@ -91,7 +91,7 @@ public:
   Error addModule(ThreadSafeModule TSM, ResourceTrackerSP RT = nullptr) {
     if (!RT)
       RT = MainJD.getDefaultResourceTracker();
-    return CompileLayer.add(RT, std::move(TSM));
+    return CompileLayer.add(RT, std::move(TSM)); 
   }
 
   Expected<ExecutorSymbolDef> lookup(StringRef Name) {

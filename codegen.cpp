@@ -16,9 +16,9 @@ Function *get_function(const std::string &name) {
   if (auto *f = TheModule->getFunction(name))
     return f;
 
-  auto FI = FunctionProtos.find(name);
-  if (FI != FunctionProtos.end())
-    return FI->second->codegen();
+  auto f = FunctionProtos.find(name);
+  if (f != FunctionProtos.end())
+    return f->second->codegen();
 
   return nullptr;
 }
@@ -98,16 +98,19 @@ Function *PrototypeAST::codegen() {
 Function *FunctionAST::codegen() {
 
   auto &p = *Proto;
-  FunctionProtos[Proto->get_name()] = std::move(Proto);
+  Function *F = get_function(Proto->get_name());
 
-  Function *F = get_function(p.get_name());
+  if (!F) {
+    FunctionProtos[p.get_name()] = std::move(Proto);
+    if (!(F = p.codegen()))
+      return nullptr;
+  }
 
-  if (!F)
-    return nullptr;
-
-  if (!F->empty())
+  if (F->arg_size() != p.get_arg_size())
     return (Function *)log_error_v(
-        std::format("Function {} has already been defined", Proto->get_name())
+        std::format("Can not overwrite function {} which has {} arguments"
+                    " with a function which has {} arguments",
+                    Proto->get_name(), F->arg_size(), Proto->get_arg_size())
             .c_str());
 
   BasicBlock *BB = BasicBlock::Create(*TheContext, "entry", F);
@@ -203,7 +206,7 @@ Value *ForExpr::codegen() {
   auto *split_bb = then_inst->getParent();
   Builder->SetInsertPoint(split_bb);
   then_inst->eraseFromParent();
-  
+
   // generate Body
   auto *body = Body->codegen();
   if (!body)

@@ -21,6 +21,14 @@ std::unique_ptr<PrototypeAST> log_error_p(const char *Str) {
   return nullptr;
 }
 
+void delete_function_if_exists(const std::string &name) {
+  auto rt = FunctionRTs.find(name);
+  if (rt != FunctionRTs.end()) {
+    ExitOnErr(rt->second->get()->remove());
+    FunctionRTs.erase(rt);
+  }
+}
+
 /// numberexpr ::= number
 static std::unique_ptr<ExprAST> parse_number_expr() {
   auto result = std::make_unique<NumberExprAST>(num_val);
@@ -303,7 +311,8 @@ static std::unique_ptr<PrototypeAST> parse_prototype() {
   if (kind && arg_names.size() != kind)
     return log_error_p("Invalid number of operands for operator.");
 
-  return std::make_unique<PrototypeAST>(fn_name, std::move(arg_names), kind != 0, precedence);
+  return std::make_unique<PrototypeAST>(fn_name, std::move(arg_names),
+                                        kind != 0, precedence);
 }
 
 /// definition ::= 'def' prototype expression
@@ -313,6 +322,7 @@ static std::unique_ptr<FunctionAST> parse_definition() {
   if (!proto)
     return nullptr;
 
+  delete_function_if_exists(proto->get_name());
   if (auto E = parse_expression())
     return std::make_unique<FunctionAST>(std::move(proto), std::move(E));
   return nullptr;
@@ -328,7 +338,7 @@ static std::unique_ptr<PrototypeAST> parse_extern() {
 static std::unique_ptr<FunctionAST> parse_top_level_expression() {
   if (auto E = parse_expression()) {
     // Make an anonymous proto.
-    auto proto = std::make_unique<PrototypeAST>("__anon_expr",
+    auto proto = std::make_unique<PrototypeAST>(ANON_FUNCTION,
                                                 std::vector<std::string>());
     return std::make_unique<FunctionAST>(std::move(proto), std::move(E));
   }
@@ -375,12 +385,19 @@ static void initialize_modules_and_managers() {
 
 static void handle_definition() {
   if (auto func = parse_definition()) {
+    std::string function_name = func->get_name();
     if (auto *IR = func->codegen()) {
       fprintf(stderr, "Read function definition:\n");
       IR->print(errs());
-      ExitOnErr(TheJIT->addModule(
-          ThreadSafeModule(std::move(TheModule), std::move(TheContext))));
+      fprintf(stderr, "\n");
+
+      auto RT = std::make_unique<ResourceTrackerSP>(
+          TheJIT->getMainJITDylib().createResourceTracker());
+      auto TSM = ThreadSafeModule(std::move(TheModule), std::move(TheContext));
+      ExitOnErr(TheJIT->addModule(std::move(TSM), *RT));
       initialize_modules_and_managers();
+
+      FunctionRTs[function_name] = std::move(RT);
     }
   } else {
     // Skip token for error recovery.
@@ -393,6 +410,7 @@ static void handle_extern() {
     if (auto *extIR = ext->codegen()) {
       fprintf(stderr, "Read a function declaration:\n");
       extIR->print(errs());
+      fprintf(stderr, "\n");
       FunctionProtos[ext->get_name()] = std::move(ext);
     }
   } else {
@@ -411,7 +429,7 @@ static void handle_top_level_expression() {
       ExitOnErr(TheJIT->addModule(std::move(TSM), RT));
       initialize_modules_and_managers();
 
-      auto expr_symbol = ExitOnErr(TheJIT->lookup("__anon_expr"));
+      auto expr_symbol = ExitOnErr(TheJIT->lookup(ANON_FUNCTION));
 
       auto fp = expr_symbol.getAddress().toPtr<double (*)()>();
 

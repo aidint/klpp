@@ -1,6 +1,7 @@
 #ifndef AST_H
 #define AST_H
 
+#define ANON_FUNCTION "__anon_expr"
 #include "include/Kaleidoscope.h"
 #include "llvm/Analysis/LoopAnalysisManager.h"
 #include "llvm/IR/IRBuilder.h"
@@ -71,6 +72,7 @@ class PrototypeAST {
 public:
   PrototypeAST(const std::string &Name, std::vector<std::string> Args,
                bool IsOperator = false, unsigned Prec = 0);
+  int get_arg_size() const { return Args.size(); }
   const std::string &get_name() const;
   const std::string get_operator_name() const;
   bool is_unary_op() const;
@@ -86,6 +88,7 @@ class FunctionAST {
 public:
   FunctionAST(std::unique_ptr<PrototypeAST> Proto,
               std::unique_ptr<ExprAST> Body);
+  const std::string &get_name() const;
   Function *codegen();
 };
 
@@ -124,6 +127,7 @@ extern std::unique_ptr<ModuleAnalysisManager> TheMAM;
 extern std::unique_ptr<PassInstrumentationCallbacks> ThePIC;
 extern std::unique_ptr<StandardInstrumentations> TheSI;
 extern std::map<std::string, std::unique_ptr<PrototypeAST>> FunctionProtos;
+extern std::map<std::string, std::unique_ptr<ResourceTrackerSP>> FunctionRTs;
 extern ExitOnError ExitOnErr;
 
 #endif

@@ -13,6 +13,7 @@ std::unique_ptr<ModuleAnalysisManager> TheMAM;
 std::unique_ptr<PassInstrumentationCallbacks> ThePIC;
 std::unique_ptr<StandardInstrumentations> TheSI;
 std::map<std::string, std::unique_ptr<PrototypeAST>> FunctionProtos;
+std::map<std::string, std::unique_ptr<ResourceTrackerSP>> FunctionRTs;
 ExitOnError ExitOnErr;
 
 ExprAST::~ExprAST() = default;
@@ -29,8 +30,12 @@ PrototypeAST::PrototypeAST(const std::string &Name,
     : Name(Name), Args(Args), IsOperator(IsOperator), Precedence(Prec) {}
 
 const std::string &PrototypeAST::get_name() const { return Name; }
-bool PrototypeAST::is_unary_op() const { return IsOperator && Args.size() == 1; }
-bool PrototypeAST::is_binary_op() const { return IsOperator && Args.size() == 2; }
+bool PrototypeAST::is_unary_op() const {
+  return IsOperator && Args.size() == 1;
+}
+bool PrototypeAST::is_binary_op() const {
+  return IsOperator && Args.size() == 2;
+}
 unsigned PrototypeAST::get_binary_precedence() const { return Precedence; }
 
 const std::string PrototypeAST::get_operator_name() const {
@@ -47,6 +52,8 @@ CallExprAST::CallExprAST(const std::string &Callee,
 FunctionAST::FunctionAST(std::unique_ptr<PrototypeAST> Proto,
                          std::unique_ptr<ExprAST> Body)
     : Proto(std::move(Proto)), Body(std::move(Body)) {};
+
+const std::string &FunctionAST::get_name() const { return Proto->get_name(); }
 
 IfExprAST::IfExprAST(std::unique_ptr<ExprAST> Condition,
                      std::unique_ptr<ExprAST> Then,
