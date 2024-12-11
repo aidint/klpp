@@ -13,6 +13,6 @@ extern "C" DLLEXPORT double putchard(double X) {
 }
 
 extern "C" DLLEXPORT double print(double X) {
-  fprintf(stderr, "%lf\n", X);
+  fprintf(stderr, "\r%lf\n", X);
   return 0;
 }

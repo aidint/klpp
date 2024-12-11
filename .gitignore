@@ -1,5 +1,5 @@
 *.out
 *.dSYM
 .cache/
-*.kl
 parser
+lexer

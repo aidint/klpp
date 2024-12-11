@@ -73,7 +73,7 @@ ForExpr::ForExpr(std::string VariableName, std::unique_ptr<ExprAST> Start,
       Body(std::move(Body)) {}
 
 std::unique_ptr<ExprAST> log_error(const char *Str) {
-  fprintf(stderr, "Error: %s\n", Str);
+  fprintf(stderr, "\rError: %s\n> ", Str);
   return nullptr;
 }
 

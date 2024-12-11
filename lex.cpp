@@ -1,13 +1,16 @@
 #include "lex.h"
+#include <cstdio>
 #include <cstdlib>
 #define BUFSIZE 100
 
 std::string identifier_str;
 std::string operator_name;
-std::unique_ptr<std::ifstream> lex_file;
 double num_val;
 static int buf[BUFSIZE];
 static int bufp;
+static auto last_iterator = std::istream_iterator<char>();
+std::istream_iterator<char> lex_iterator;
+
 
 static bool is_viable_operator_char(char c) {
   if (c == '!' || c == '$' || c == '%' || c == '&' || c == ':' || c == '*' ||
@@ -18,24 +21,23 @@ static bool is_viable_operator_char(char c) {
   return false;
 }
 
-static int get_char() {
-  if (bufp)
-    return buf[--bufp];
-  if (lex_file && lex_file->is_open()) {
-    char c;
-    lex_file->get(c);
-    return c;
-  } else if (lex_file) 
-    return EOF;
-  
-  return getchar();
-}
-
 [[maybe_unused]] static char putback_char(int c) {
   if (bufp == BUFSIZE)
     printf("Warning: buffer overflow");
   else
     buf[bufp++] = c;
+  return c;
+}
+
+static int get_char() {
+  if (bufp)
+    return buf[--bufp];
+
+  if (lex_iterator != last_iterator) 
+    return *lex_iterator++;
+
+  char c = getchar();
+  if (c == '\n') fprintf(stderr, "> ");
   return c;
 }
 
@@ -126,7 +128,7 @@ int gettok() {
       }
     }
 
-    num_val = std::atoi(number_string.c_str());
+    num_val = std::atof(number_string.c_str());
     return tok_number;
   }
 
@@ -145,8 +147,10 @@ int gettok() {
       return tok_operator;
   }
 
-  if (last_char == EOF)
+  if (last_char == EOF) {
+    last_char = ' ';
     return tok_eof;
+  }
 
   int this_char = last_char;
   last_char = get_char();

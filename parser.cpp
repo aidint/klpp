@@ -8,10 +8,13 @@
 #include "llvm/Transforms/Scalar/SimplifyCFG.h"
 #include <cassert>
 #include <fstream>
+#include <ios>
+#include <iterator>
 #include <map>
 #include <memory>
 #include <string>
 
+#define DEBUG false
 // The main code
 static int cur_tok;
 static int get_next_token() { return cur_tok = gettok(); }
@@ -90,7 +93,7 @@ static std::unique_ptr<ExprAST> parse_for_expr() {
   auto var = identifier_str;
   get_next_token(); // eat identifier
 
-  if (cur_tok != '=')
+  if (cur_tok != tok_operator && operator_name != "=")
     return log_error("Expected `=` after identifier for initialization.");
 
   get_next_token(); // eat =
@@ -407,9 +410,11 @@ static void handle_definition() {
   if (auto func = parse_definition()) {
     std::string function_name = func->get_name();
     if (auto *IR = func->codegen()) {
-      fprintf(stderr, "Read function definition:\n");
-      IR->print(errs());
-      fprintf(stderr, "\n");
+      if (DEBUG) {
+        fprintf(stderr, "Read function definition:\n");
+        IR->print(errs());
+        fprintf(stderr, "\n> ");
+      }
 
       auto RT = std::make_unique<ResourceTrackerSP>(
           TheJIT->getMainJITDylib().createResourceTracker());
@@ -428,9 +433,11 @@ static void handle_definition() {
 static void handle_extern() {
   if (auto ext = parse_extern()) {
     if (auto *extIR = ext->codegen()) {
-      fprintf(stderr, "Read a function declaration:\n");
-      extIR->print(errs());
-      fprintf(stderr, "\n");
+      if (DEBUG) {
+        fprintf(stderr, "Read a function declaration:\n");
+        extIR->print(errs());
+        fprintf(stderr, "\n> ");
+      }
       FunctionProtos[ext->get_name()] = std::move(ext);
     }
   } else {
@@ -453,7 +460,7 @@ static void handle_top_level_expression() {
 
       auto fp = expr_symbol.getAddress().toPtr<double (*)()>();
 
-      fprintf(stderr, "Evaluated to: %lf\n", fp());
+      fprintf(stderr, DEBUG ? "\r \tEvaluated to: %lf\n> " : "\r \t%lf\n> ", fp());
       ExitOnErr(RT->remove());
     }
   } else {
@@ -462,11 +469,9 @@ static void handle_top_level_expression() {
   }
 }
 /// top ::= definition | external | expression | ';'
-static void main_loop(bool repl = true) {
+static void main_loop() {
   get_next_token();
   while (true) {
-    if (repl)
-      fprintf(stderr, "ready> ");
     switch (cur_tok) {
     case tok_eof:
       return;
@@ -494,14 +499,11 @@ int main() {
   TheJIT = ExitOnErr(KaleidoscopeJIT::Create());
   initialize_modules_and_managers();
 
-  auto standard_lib = std::make_unique<std::ifstream>("lib/std.kl");
-  lex_file = std::move(standard_lib);
-  main_loop(/*repl=*/false); // load standard library
+  std::ifstream standard_lib("lib/std.kl");
+  lex_iterator = std::istream_iterator<char>(standard_lib >> std::noskipws);
 
-  main_loop();
-
-  // Print out all of the generated code.
-  TheModule->print(errs(), nullptr);
+  fprintf(stderr, "> ");
+  main_loop(); // load standard library
 
   return 0;
 }

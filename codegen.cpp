@@ -206,24 +206,24 @@ Value *ForExpr::codegen() {
 
   auto *f = Builder->GetInsertBlock()->getParent();
   auto *first_bb = Builder->GetInsertBlock();
-  auto *loop_bb = BasicBlock::Create(*TheContext, "loop", f);
-  auto *end_bb = BasicBlock::Create(*TheContext, "endfor");
+  auto *loop_bb = BasicBlock::Create(*TheContext, std::format("{}-loop", VarName), f);
+  auto *end_bb = BasicBlock::Create(*TheContext, std::format("{}-endfor", VarName));
 
   Builder->CreateBr(loop_bb);
 
   Builder->SetInsertPoint(loop_bb);
 
-  auto *var = Builder->CreatePHI(Type::getDoubleTy(*TheContext), 2, "loopval");
-  var->addIncoming(start, first_bb);
+  auto *phi = Builder->CreatePHI(Type::getDoubleTy(*TheContext), 2, std::format("{}-loopval", VarName));
+  phi->addIncoming(start, first_bb);
 
   Value *old_val = NamedValues[VarName];
-  NamedValues[VarName] = var;
+  NamedValues[VarName] = phi;
 
   Value *condition = Condition->codegen();
   if (!condition)
     return nullptr;
   auto *bool_cond = Builder->CreateFCmpONE(
-      condition, ConstantFP::get(*TheContext, APFloat(0.0)), "forcond");
+      condition, ConstantFP::get(*TheContext, APFloat(0.0)), std::format("{}-forcond", VarName));
   auto *branch = Builder->CreateBr(end_bb);
 
   // Check the condition even on the first iteration
@@ -240,7 +240,7 @@ Value *ForExpr::codegen() {
   Value *step = Step->codegen();
   if (!step)
     return nullptr;
-  var->addIncoming(Builder->CreateFAdd(var, step), split_bb);
+  phi->addIncoming(Builder->CreateFAdd(phi, step), Builder->GetInsertBlock());
   Builder->CreateBr(loop_bb);
 
   f->insert(f->end(), end_bb);
