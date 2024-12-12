@@ -3,15 +3,15 @@ def unary!(v)
   if v then
     0
   else
-    1;
+    1
 
 # Unary negate.
 def unary-(v)
-  0-v;
+  0-v
 
 # Define > with the same precedence as <.
 def binary> 10 (LHS RHS)
-  RHS < LHS;
+  RHS < LHS
 
 # Binary logical or, which does not short circuit.
 def binary| 5 (LHS RHS)
@@ -20,26 +20,28 @@ def binary| 5 (LHS RHS)
   else if RHS then
     1
   else
-    0;
+    0
 
 # Binary logical and, which does not short circuit.
 def binary& 6 (LHS RHS)
   if !LHS then
     0
   else
-    ! !RHS;
+    ! !RHS
 
 # Define = with slightly lower precedence than relationals.
-def binary= 9 (LHS RHS)
-  !(LHS < RHS | LHS > RHS);
+def binary== 9 (LHS RHS)
+  ! (LHS < RHS | LHS > RHS)
 
 # Define ':' for sequencing: as a low-precedence operator that ignores operands
 # and just returns the RHS.
-def binary: 1 (x y) y;
+def binary: 1 (x y) y
 
 # some extra stuff
 
-extern putchard(x);
+extern putchard(x)
+extern print(x)
+extern printd(x)
 
 def printdensity(d)
   if d > 8 then
@@ -49,7 +51,7 @@ def printdensity(d)
   else if d > 2 then
     putchard(43)  # '+'
   else
-    putchard(42); # '*'
+    putchard(42) # '*'
 
 
 # Determine whether the specific location diverges.
@@ -60,18 +62,18 @@ def mandelconverger(real imag iters creal cimag)
   else
     mandelconverger(real*real - imag*imag + creal,
                     2*real*imag + cimag,
-                    iters+1, creal, cimag);
+                    iters+1, creal, cimag)
 
 # Return the number of iterations required for the iteration to escape
 def mandelconverge(real imag)
-  mandelconverger(real, imag, 0, real, imag);
+  mandelconverger(real, imag, 0, real, imag)
 
 def testseg(xmin xmax xstep)
   for x = xmin, x < xmax, xstep do
     for y = xmin, y < xmax, xstep do printdensity(x + y) end
-  end;
+  end
 
-extern print(x);
+extern print(x)
 # Compute and plot the mandelbrot set with the specified 2 dimensional range
 # info.
 def mandelhelp(xmin xmax xstep   ymin ymax ystep)
@@ -83,11 +85,12 @@ def mandelhelp(xmin xmax xstep   ymin ymax ystep)
     )
     : putchard(10)
    ) 
-    end;
+    end
 
 # mandel - This is a convenient helper function for plotting the mandelbrot set
 # from the specified position with the specified Magnification.
 def mandel(realstart imagstart realmag imagmag)
   putchard(13):mandelhelp(realstart, realstart+realmag*78, realmag,
-             imagstart, imagstart+imagmag*40, imagmag);
+             imagstart, imagstart+imagmag*40, imagmag)
 
+; # start repl here

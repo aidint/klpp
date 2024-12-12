@@ -16,3 +16,8 @@ extern "C" DLLEXPORT double print(double X) {
   fprintf(stderr, "\r%lf\n", X);
   return 0;
 }
+
+extern "C" DLLEXPORT double printd(double X) {
+  fprintf(stderr, "\r%d\n", static_cast<int>(X));
+  return 0;
+}

@@ -6,6 +6,7 @@
 #include "llvm/Transforms/Scalar/GVN.h"
 #include "llvm/Transforms/Scalar/Reassociate.h"
 #include "llvm/Transforms/Scalar/SimplifyCFG.h"
+#include "llvm/Transforms/Utils/Mem2Reg.h"
 #include <cassert>
 #include <fstream>
 #include <ios>
@@ -100,7 +101,7 @@ static std::unique_ptr<ExprAST> parse_for_expr() {
 
   auto start = parse_expression();
   if (!start)
-    return log_error("Error parsing initialization in for statement.");
+    return nullptr;
 
   if (cur_tok != ',')
     return log_error(
@@ -110,7 +111,7 @@ static std::unique_ptr<ExprAST> parse_for_expr() {
 
   auto condition = parse_expression();
   if (!condition)
-    return log_error("Error parsing condition in for statement.");
+    return nullptr;
 
   if (cur_tok != ',')
     return log_error("Missing ',' separtor in for statement after condition.");
@@ -119,7 +120,7 @@ static std::unique_ptr<ExprAST> parse_for_expr() {
 
   auto step = parse_expression();
   if (!step)
-    return log_error("Error parsing step in for statement.");
+    return nullptr;
 
   if (cur_tok != tok_do)
     return log_error("Expected `do` in for statement.");
@@ -128,15 +129,60 @@ static std::unique_ptr<ExprAST> parse_for_expr() {
 
   auto body = parse_expression();
   if (!body)
-    return log_error("Error parsing body in for statement.");
+    return nullptr;
 
   if (cur_tok != tok_end)
     return log_error("Missing `end`.");
 
   get_next_token(); // eat end
 
-  return std::make_unique<ForExpr>(var, std::move(start), std::move(condition),
-                                   std::move(step), std::move(body));
+  return std::make_unique<ForExprAST>(var, std::move(start),
+                                      std::move(condition), std::move(step),
+                                      std::move(body));
+}
+
+static std::unique_ptr<ExprAST> parse_with_expr() {
+
+  get_next_token(); // eat with
+
+  VariableVector Variables;
+
+  do {
+    if (cur_tok != tok_identifier)
+      return log_error("With statement expects valid identifier.");
+    auto variable_name = identifier_str;
+    get_next_token(); // eat identifier
+
+    std::unique_ptr<ExprAST> initial_val;
+    if (cur_tok == tok_operator && operator_name == "=") {
+      get_next_token(); // eat =
+      initial_val = parse_expression();
+      if (!initial_val)
+        return nullptr;
+    }
+
+    Variables.push_back(std::make_pair(variable_name, std::move(initial_val)));
+
+    if (cur_tok != ',')
+      break;
+    get_next_token(); // eat ,
+
+  } while (true);
+
+  if (cur_tok != tok_do)
+    return log_error("Missing `do` keyword.");
+
+  get_next_token(); // eat do
+
+  auto body = parse_expression();
+  if (!body)
+    return nullptr;
+
+  if (cur_tok != tok_end)
+    return log_error("Missing `end` keyword.");
+  get_next_token(); // eat end
+
+  return std::make_unique<WithExprAST>(std::move(Variables), std::move(body));
 }
 
 /// identifierexpr
@@ -191,6 +237,8 @@ static std::unique_ptr<ExprAST> parse_primary() {
     return parse_if_expr();
   case tok_for:
     return parse_for_expr();
+  case tok_with:
+    return parse_with_expr();
   default:
     return log_error("unknown token when expecting an expression");
   }
@@ -394,6 +442,7 @@ static void initialize_modules_and_managers() {
   TheFPM->addPass(ReassociatePass());
   TheFPM->addPass(GVNPass());
   TheFPM->addPass(SimplifyCFGPass());
+  TheFPM->addPass(PromotePass());
 
   PassBuilder PB;
   PB.registerModuleAnalyses(*TheMAM);
@@ -460,7 +509,8 @@ static void handle_top_level_expression() {
 
       auto fp = expr_symbol.getAddress().toPtr<double (*)()>();
 
-      fprintf(stderr, DEBUG ? "\r \tEvaluated to: %lf\n> " : "\r \t%lf\n> ", fp());
+      fprintf(stderr, DEBUG ? "\r \tEvaluated to: %lf\n> " : "\r \t%lf\n> ",
+              fp());
       ExitOnErr(RT->remove());
     }
   } else {

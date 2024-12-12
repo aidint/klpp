@@ -29,7 +29,10 @@ enum Token {
   // user-defined operators
   tok_binary = -12,
   tok_unary = -13,
-  tok_operator = -14
+  tok_operator = -14,
+
+  // var
+  tok_with = -15
 };
 
 int gettok();

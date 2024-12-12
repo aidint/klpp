@@ -1,9 +1,11 @@
 #include "ast.h"
+#include "llvm/ADT/StringRef.h"
+#include "llvm/IR/Instructions.h"
 
 std::unique_ptr<LLVMContext> TheContext;
 std::unique_ptr<IRBuilder<>> Builder;
 std::unique_ptr<Module> TheModule;
-std::map<std::string, Value *> NamedValues;
+std::map<std::string, AllocaInst *> NamedValues;
 std::unique_ptr<KaleidoscopeJIT> TheJIT;
 std::unique_ptr<FunctionPassManager> TheFPM;
 std::unique_ptr<LoopAnalysisManager> TheLAM;
@@ -17,15 +19,17 @@ std::map<std::string, std::unique_ptr<ResourceTrackerSP>> FunctionRTs;
 ExitOnError ExitOnErr;
 
 ExprAST::~ExprAST() = default;
-NumberExprAST::NumberExprAST(double Val) : Val(Val) {}
-VariableExprAST::VariableExprAST(const std::string &Name) : Name(Name) {}
+NumberExprAST::NumberExprAST(double Val) : ExprAST(NumberExpr), Val(Val) {}
+VariableExprAST::VariableExprAST(const std::string &Name)
+    : ExprAST(VariableExpr), Name(Name) {}
 
 // Binary and Unary Expressions
 BinaryExprAST::BinaryExprAST(std::string Op, std::unique_ptr<ExprAST> LHS,
                              std::unique_ptr<ExprAST> RHS)
-    : Op(Op), LHS(std::move(LHS)), RHS(std::move(RHS)) {}
+    : ExprAST(BinaryExpr), Op(Op), LHS(std::move(LHS)), RHS(std::move(RHS)) {}
 
-UnaryExprAST::UnaryExprAST(std::string Op, std::unique_ptr<ExprAST> Operand) : Op(Op), Operand(std::move(Operand)) {}
+UnaryExprAST::UnaryExprAST(std::string Op, std::unique_ptr<ExprAST> Operand)
+    : ExprAST(UnaryExpr), Op(Op), Operand(std::move(Operand)) {}
 
 // PrototypeAST
 PrototypeAST::PrototypeAST(const std::string &Name,
@@ -52,7 +56,7 @@ const std::string PrototypeAST::get_operator_name() const {
 
 CallExprAST::CallExprAST(const std::string &Callee,
                          std::vector<std::unique_ptr<ExprAST>> Args)
-    : Callee(Callee), Args(std::move(Args)) {}
+    : ExprAST(CallExpr), Callee(Callee), Args(std::move(Args)) {}
 FunctionAST::FunctionAST(std::unique_ptr<PrototypeAST> Proto,
                          std::unique_ptr<ExprAST> Body)
     : Proto(std::move(Proto)), Body(std::move(Body)) {};
@@ -62,15 +66,19 @@ const std::string &FunctionAST::get_name() const { return Proto->get_name(); }
 IfExprAST::IfExprAST(std::unique_ptr<ExprAST> Condition,
                      std::unique_ptr<ExprAST> Then,
                      std::unique_ptr<ExprAST> Else)
-    : Condition(std::move(Condition)), Then(std::move(Then)),
+    : ExprAST(CallExpr), Condition(std::move(Condition)), Then(std::move(Then)),
       Else(std::move(Else)) {}
 
-ForExpr::ForExpr(std::string VariableName, std::unique_ptr<ExprAST> Start,
-                 std::unique_ptr<ExprAST> Condition,
-                 std::unique_ptr<ExprAST> Step, std::unique_ptr<ExprAST> Body)
-    : VarName(VariableName), Start(std::move(Start)),
+ForExprAST::ForExprAST(std::string VariableName, std::unique_ptr<ExprAST> Start,
+                       std::unique_ptr<ExprAST> Condition,
+                       std::unique_ptr<ExprAST> Step,
+                       std::unique_ptr<ExprAST> Body)
+    : ExprAST(ForExpr), VarName(VariableName), Start(std::move(Start)),
       Condition(std::move(Condition)), Step(std::move(Step)),
       Body(std::move(Body)) {}
+
+WithExprAST::WithExprAST(VariableVector Variables, std::unique_ptr<ExprAST> Body)
+    : ExprAST(WithExpr), Variables(std::move(Variables)), Body(std::move(Body)) {}
 
 std::unique_ptr<ExprAST> log_error(const char *Str) {
   fprintf(stderr, "\rError: %s\n> ", Str);
@@ -80,5 +88,12 @@ std::unique_ptr<ExprAST> log_error(const char *Str) {
 // Binary Expression Operations
 //
 std::map<std::string, int> BINOP_PRECEDENCE = {
-    {"<", 10}, {">", 10}, {"+", 20}, {"-", 20}, {"*", 40},
+    {"=", 2}, {"<", 10}, {">", 10}, {"+", 20}, {"-", 20}, {"*", 40},
 };
+
+AllocaInst *create_entry_block_alloca(Function *function, StringRef var_name) {
+  IRBuilder<> temp_builder(&function->getEntryBlock(),
+                           function->getEntryBlock().begin());
+  return temp_builder.CreateAlloca(Type::getDoubleTy(*TheContext), nullptr,
+                                   var_name);
+}

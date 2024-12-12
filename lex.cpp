@@ -106,7 +106,7 @@ int gettok() {
     } else if (identifier_str == "unary") {
       last_char = get_operator(last_char);
       return operator_name.empty() ? tok_identifier : tok_unary;
-    }
+    } else if (identifier_str == "with") return tok_with;
     return tok_identifier;
   }
 

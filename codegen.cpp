@@ -4,10 +4,12 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Verifier.h"
+#include "llvm/Support/Casting.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include <format>
 #include <memory>
@@ -33,13 +35,36 @@ Value *NumberExprAST::codegen() {
 }
 
 Value *VariableExprAST::codegen() {
-  Value *V = NamedValues[Name];
-  if (!V)
+  AllocaInst *A = NamedValues[Name];
+  if (!A)
     return log_error_v("Unknown variable name");
-  return V;
+  return Builder->CreateLoad(Type::getDoubleTy(*TheContext), A, Name.c_str());
 }
 
 Value *BinaryExprAST::codegen() {
+
+  // assignment
+  if (Op == "=") {
+    // We use LLVM-style RTTI so we can do error checking
+    auto LHSE = dyn_cast<VariableExprAST>(LHS.get());
+
+    if (!LHSE)
+      return log_error_v(
+          "Left hand side of assignment should be a valid identifier.");
+
+    Value *val = RHS->codegen();
+    if (!val)
+      return nullptr;
+
+    auto *variable = NamedValues[LHSE->get_name()];
+    if (!variable)
+      return log_error_v(
+          std::format("Variable {} does not exist.", LHSE->get_name()).c_str());
+
+    Builder->CreateStore(val, variable);
+    return val; // assignment returns value as C and C++
+  }
+
   Value *L = LHS->codegen();
   Value *R = RHS->codegen();
   if (!L || !R)
@@ -140,8 +165,12 @@ Function *FunctionAST::codegen() {
 
   // Record the function arguments in the NamedValues map.
   NamedValues.clear();
-  for (auto &arg : F->args())
-    NamedValues[std::string(arg.getName())] = &arg;
+  for (auto &arg : F->args()) {
+    AllocaInst *arg_alloca = create_entry_block_alloca(F, arg.getName());
+    Builder->CreateStore(&arg, arg_alloca);
+    NamedValues[std::string(arg.getName())] = arg_alloca;
+  }
+
   if (Value *ret_value = Body->codegen()) {
     Builder->CreateRet(ret_value);
     verifyFunction(*F);
@@ -198,32 +227,36 @@ Value *IfExprAST::codegen() {
   return ret_val;
 }
 
-Value *ForExpr::codegen() {
+Value *ForExprAST::codegen() {
+
+  AllocaInst *var_alloc = create_entry_block_alloca(
+      Builder->GetInsertBlock()->getParent(), VarName);
 
   Value *start = Start->codegen();
   if (!start)
     return nullptr;
 
+  Builder->CreateStore(start, var_alloc);
+
   auto *f = Builder->GetInsertBlock()->getParent();
-  auto *first_bb = Builder->GetInsertBlock();
-  auto *loop_bb = BasicBlock::Create(*TheContext, std::format("{}-loop", VarName), f);
-  auto *end_bb = BasicBlock::Create(*TheContext, std::format("{}-endfor", VarName));
+  auto *loop_bb =
+      BasicBlock::Create(*TheContext, std::format("{}-loop", VarName), f);
+  auto *end_bb =
+      BasicBlock::Create(*TheContext, std::format("{}-endfor", VarName));
 
   Builder->CreateBr(loop_bb);
 
   Builder->SetInsertPoint(loop_bb);
 
-  auto *phi = Builder->CreatePHI(Type::getDoubleTy(*TheContext), 2, std::format("{}-loopval", VarName));
-  phi->addIncoming(start, first_bb);
-
-  Value *old_val = NamedValues[VarName];
-  NamedValues[VarName] = phi;
+  auto *old_pointer = NamedValues[VarName];
+  NamedValues[VarName] = var_alloc;
 
   Value *condition = Condition->codegen();
   if (!condition)
     return nullptr;
   auto *bool_cond = Builder->CreateFCmpONE(
-      condition, ConstantFP::get(*TheContext, APFloat(0.0)), std::format("{}-forcond", VarName));
+      condition, ConstantFP::get(*TheContext, APFloat(0.0)),
+      std::format("{}-forcond", VarName));
   auto *branch = Builder->CreateBr(end_bb);
 
   // Check the condition even on the first iteration
@@ -240,11 +273,52 @@ Value *ForExpr::codegen() {
   Value *step = Step->codegen();
   if (!step)
     return nullptr;
-  phi->addIncoming(Builder->CreateFAdd(phi, step), Builder->GetInsertBlock());
+
+  Builder->CreateStore(
+      Builder->CreateFAdd(
+          Builder->CreateLoad(Type::getDoubleTy(*TheContext), var_alloc), step,
+          std::format("{}-nextvar", VarName)),
+      var_alloc);
   Builder->CreateBr(loop_bb);
 
   f->insert(f->end(), end_bb);
   Builder->SetInsertPoint(end_bb);
-  NamedValues[VarName] = old_val;
+  NamedValues[VarName] = old_pointer;
   return ConstantFP::get(*TheContext, APFloat(0.0));
+}
+
+Value *WithExprAST::codegen() {
+  std::vector<AllocaInst *> old_values;
+  Function *f = Builder->GetInsertBlock()->getParent();
+
+  for (int i = 0, e = Variables.size(); i != e; ++i) {
+
+    auto &variable_name = Variables[i].first;
+    ExprAST *init = Variables[i].second.get();
+
+    AllocaInst *ptr = create_entry_block_alloca(f, variable_name);
+
+    Value *initial_val;
+    if (init) {
+      initial_val = init->codegen();
+      if (!initial_val)
+        return nullptr;
+    } else {
+      initial_val = ConstantFP::get(*TheContext, APFloat(0.0));
+    }
+
+    Builder->CreateStore(initial_val, ptr);
+
+    old_values.push_back(NamedValues[variable_name]);
+    NamedValues[variable_name] = ptr;
+  }
+
+  Value *body = Body->codegen();
+  if (!body)
+    return nullptr;
+
+  for (int i = 0, e = Variables.size(); i != e; ++i)
+    NamedValues[Variables[i].first] = old_values[i];
+
+  return body;
 }
