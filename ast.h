@@ -167,7 +167,7 @@ extern std::map<std::string, std::unique_ptr<ResourceTrackerSP>> FunctionRTs;
 // Error handling
 
 inline std::unique_ptr<ExprAST> log_error(const char *Str) {
-  fprintf(stderr, "\rError: %s\n" REPL_STR, Str);
+  fprintf(stderr, "\rError: %s\n", Str);
   return nullptr;
 }
 

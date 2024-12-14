@@ -1,8 +1,26 @@
 #ifndef LEX_H
 #define LEX_H
-#include <string>
-#include <iterator>
 #include <istream>
+#include <memory>
+#include <string>
+
+class SourceReader {
+  std::unique_ptr<std::istream> source;
+
+public:
+  void set_source(std::unique_ptr<std::istream> source_stream) {
+    source = std::move(source_stream);
+  }
+
+  char get_next_char() {
+    char c;
+    source->get(c);
+    if (c == '\0')
+      return EOF;
+
+    return c;
+  }
+};
 
 enum Token {
   tok_eof = -1,
@@ -40,7 +58,6 @@ int gettok();
 extern std::string identifier_str; // Filled in if tok_identifier
 extern std::string operator_name;  // Filled in if tok_unary or tok_binary
 extern double num_val;             // Filled in if tok_number
-extern std::istream_iterator<char> lex_iterator;
-
+extern std::unique_ptr<SourceReader> TheSource;
 
 #endif

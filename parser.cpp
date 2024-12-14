@@ -413,7 +413,7 @@ void handle_definition() {
       if (DEBUG) {
         fprintf(stderr, "Read function definition:\n");
         IR->print(errs());
-        fprintf(stderr, "\n" REPL_STR);
+        fprintf(stderr, "\n");
       }
 
       auto RT = std::make_unique<ResourceTrackerSP>(
@@ -436,7 +436,7 @@ void handle_extern() {
       if (DEBUG) {
         fprintf(stderr, "Read a function declaration:\n");
         extIR->print(errs());
-        fprintf(stderr, "\n" REPL_STR);
+        fprintf(stderr, "\n");
       }
       FunctionProtos[ext->get_name()] = std::move(ext);
     }
@@ -461,7 +461,7 @@ void handle_top_level_expression() {
       auto fp = expr_symbol.getAddress().toPtr<double (*)()>();
 
 
-      fprintf(stderr, DEBUG ? "\r  \tEvaluated to: %lf\n" REPL_STR : "\r  \t%lf\n" REPL_STR,
+      fprintf(stderr, DEBUG ? "\r  \tEvaluated to: %lf\n" : "\r  \t%lf\n",
               fp());
       ExitOnErr(RT->remove());
     }

@@ -1,5 +1,4 @@
 #include "lex.h"
-#include "internal.h"
 #include <cstdio>
 #include <cstdlib>
 #define BUFSIZE 100
@@ -9,9 +8,7 @@ std::string operator_name;
 double num_val;
 static int buf[BUFSIZE];
 static int bufp;
-static auto last_iterator = std::istream_iterator<char>();
-std::istream_iterator<char> lex_iterator;
-
+std::unique_ptr<SourceReader> TheSource = std::make_unique<SourceReader>();
 
 static bool is_viable_operator_char(char c) {
   if (c == '!' || c == '$' || c == '%' || c == '&' || c == ':' || c == '*' ||
@@ -34,12 +31,7 @@ static int get_char() {
   if (bufp)
     return buf[--bufp];
 
-  if (lex_iterator != last_iterator) 
-    return *lex_iterator++;
-
-  char c = getchar();
-  if (c == '\n') fprintf(stderr, REPL_STR);
-  return c;
+  return TheSource->get_next_char();
 }
 
 // {binary | unary}<operator_name>{ }*(.*)
