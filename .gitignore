@@ -3,3 +3,4 @@
 .cache/
 parser
 lexer
+compile_commands.json
