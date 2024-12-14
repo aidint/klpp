@@ -1,9 +1,9 @@
 CXX = clang++
-FILES = parser.cpp lex.cpp ast.cpp codegen.cpp external.cpp
+FILES = parser.cpp lex.cpp ast.cpp codegen.cpp external.cpp internal.cpp repl.cpp
 CXXFLAGS = -O3 -Wall -std=c++20
 DEBUGFLAGS = -g -O0 -Wall -std=c++20
 LLVM_CONF = llvm-config --cxxflags --ldflags --system-libs --libs core orcjit native
-TARGET = parser
+TARGET = kpp
 
 $(TARGET): 
 	$(CXX) `$(LLVM_CONF)` $(CXXFLAGS) $(FILES) -o $(TARGET)

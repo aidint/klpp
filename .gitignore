@@ -1,6 +1,7 @@
 *.out
 *.dSYM
 .cache/
-parser
 lexer
+kpp
+kppc
 compile_commands.json

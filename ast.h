@@ -1,29 +1,23 @@
 #ifndef AST_H
 #define AST_H
 
-#include "include/Kaleidoscope.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/Analysis/LoopAnalysisManager.h"
-#include "llvm/IR/IRBuilder.h"
+#include "internal.h"
+#include "llvm/ExecutionEngine/Orc/Core.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/Value.h"
-#include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/StandardInstrumentations.h"
-#include "llvm/Support/Casting.h"
+#include "llvm/Support/Casting.h" // important for llvm-style RTTI
 #include <map>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
-#define ANON_FUNCTION "__anon_expr"
 using namespace llvm;
 using namespace llvm::orc;
-
-Value *log_error_v(const char *Str);
 
 class ExprAST {
 public:
@@ -165,24 +159,25 @@ public:
   static bool classof(const ExprAST *E) { return E->getKind() == WithExpr; }
 };
 
-std::unique_ptr<ExprAST> log_error(const char *Str);
-extern std::unique_ptr<LLVMContext> TheContext;
-extern std::unique_ptr<IRBuilder<>> Builder;
-extern std::unique_ptr<Module> TheModule;
-extern std::map<std::string, AllocaInst *> NamedValues;
-extern std::unique_ptr<KaleidoscopeJIT> TheJIT;
-extern std::unique_ptr<FunctionPassManager> TheFPM;
-extern std::unique_ptr<LoopAnalysisManager> TheLAM;
-extern std::unique_ptr<FunctionAnalysisManager> TheFAM;
-extern std::unique_ptr<CGSCCAnalysisManager> TheCGAM;
-extern std::unique_ptr<ModuleAnalysisManager> TheMAM;
-extern std::unique_ptr<PassInstrumentationCallbacks> ThePIC;
-extern std::unique_ptr<StandardInstrumentations> TheSI;
+// central maps
+//
 extern std::map<std::string, std::unique_ptr<PrototypeAST>> FunctionProtos;
 extern std::map<std::string, std::unique_ptr<ResourceTrackerSP>> FunctionRTs;
-extern ExitOnError ExitOnErr;
 
-extern std::map<std::string, int> BINOP_PRECEDENCE;
+// Error handling
 
-AllocaInst *create_entry_block_alloca(Function *function, StringRef var_name);
+inline std::unique_ptr<ExprAST> log_error(const char *Str) {
+  fprintf(stderr, "\rError: %s\n" REPL_STR, Str);
+  return nullptr;
+}
+
+inline std::unique_ptr<PrototypeAST> log_error_p(const char *Str) {
+  log_error(Str);
+  return nullptr;
+}
+
+inline Value *log_error_v(const char *Str) {
+  log_error(Str);
+  return nullptr;
+}
 #endif

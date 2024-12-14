@@ -1,4 +1,5 @@
 #include "lex.h"
+#include "internal.h"
 #include <cstdio>
 #include <cstdlib>
 #define BUFSIZE 100
@@ -37,7 +38,7 @@ static int get_char() {
     return *lex_iterator++;
 
   char c = getchar();
-  if (c == '\n') fprintf(stderr, "> ");
+  if (c == '\n') fprintf(stderr, REPL_STR);
   return c;
 }
 

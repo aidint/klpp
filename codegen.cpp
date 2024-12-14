@@ -1,4 +1,5 @@
 #include "ast.h"
+#include "internal.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"
@@ -25,10 +26,6 @@ Function *get_function(const std::string &name) {
   return nullptr;
 }
 
-Value *log_error_v(const char *Str) {
-  log_error(Str);
-  return nullptr;
-}
 
 Value *NumberExprAST::codegen() {
   return ConstantFP::get(*TheContext, APFloat(Val));

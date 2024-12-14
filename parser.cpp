@@ -1,31 +1,17 @@
 #include "parser.h"
 #include "ast.h"
+#include "internal.h"
 #include "lex.h"
-#include "llvm/Support/TargetSelect.h"
-#include "llvm/Transforms/InstCombine/InstCombine.h"
-#include "llvm/Transforms/Scalar/GVN.h"
-#include "llvm/Transforms/Scalar/Reassociate.h"
-#include "llvm/Transforms/Scalar/SimplifyCFG.h"
-#include "llvm/Transforms/Utils/Mem2Reg.h"
 #include <cassert>
-#include <fstream>
-#include <ios>
-#include <iterator>
+#include <cstring>
 #include <map>
 #include <memory>
 #include <string>
 
-#define DEBUG false
 // The main code
-static int cur_tok;
-static int get_next_token() { return cur_tok = gettok(); }
 
+int cur_tok = 0;
 static std::unique_ptr<ExprAST> parse_expression();
-
-std::unique_ptr<PrototypeAST> log_error_p(const char *Str) {
-  log_error(Str);
-  return nullptr;
-}
 
 void delete_function_if_exists(const std::string &name) {
   auto rt = FunctionRTs.find(name);
@@ -419,50 +405,15 @@ static std::unique_ptr<FunctionAST> parse_top_level_expression() {
 // Top level parsing
 //
 //
-static void initialize_modules_and_managers() {
-  // Open a new context and module.
 
-  TheContext = std::make_unique<LLVMContext>();
-  TheModule = std::make_unique<Module>("my first jit", *TheContext);
-
-  TheModule->setDataLayout(TheJIT->getDataLayout());
-
-  TheFPM = std::make_unique<FunctionPassManager>();
-  TheLAM = std::make_unique<LoopAnalysisManager>();
-  TheFAM = std::make_unique<FunctionAnalysisManager>();
-  TheCGAM = std::make_unique<CGSCCAnalysisManager>();
-  TheMAM = std::make_unique<ModuleAnalysisManager>();
-  ThePIC = std::make_unique<PassInstrumentationCallbacks>();
-  TheSI = std::make_unique<StandardInstrumentations>(*TheContext, true);
-
-  TheSI->registerCallbacks(*ThePIC, TheMAM.get());
-
-  // Add passes
-  TheFPM->addPass(InstCombinePass());
-  TheFPM->addPass(ReassociatePass());
-  TheFPM->addPass(GVNPass());
-  TheFPM->addPass(SimplifyCFGPass());
-  TheFPM->addPass(PromotePass());
-
-  PassBuilder PB;
-  PB.registerModuleAnalyses(*TheMAM);
-  PB.registerFunctionAnalyses(*TheFAM);
-  PB.crossRegisterProxies(
-      *TheLAM, *TheFAM, *TheCGAM,
-      *TheMAM); // I don't know why the other two were registerd separately
-
-  // Create a new builder for the module.
-  Builder = std::make_unique<IRBuilder<>>(*TheContext);
-}
-
-static void handle_definition() {
+void handle_definition() {
   if (auto func = parse_definition()) {
     std::string function_name = func->get_name();
     if (auto *IR = func->codegen()) {
       if (DEBUG) {
         fprintf(stderr, "Read function definition:\n");
         IR->print(errs());
-        fprintf(stderr, "\n> ");
+        fprintf(stderr, "\n" REPL_STR);
       }
 
       auto RT = std::make_unique<ResourceTrackerSP>(
@@ -479,13 +430,13 @@ static void handle_definition() {
   }
 }
 
-static void handle_extern() {
+void handle_extern() {
   if (auto ext = parse_extern()) {
     if (auto *extIR = ext->codegen()) {
       if (DEBUG) {
         fprintf(stderr, "Read a function declaration:\n");
         extIR->print(errs());
-        fprintf(stderr, "\n> ");
+        fprintf(stderr, "\n" REPL_STR);
       }
       FunctionProtos[ext->get_name()] = std::move(ext);
     }
@@ -495,7 +446,7 @@ static void handle_extern() {
   }
 }
 
-static void handle_top_level_expression() {
+void handle_top_level_expression() {
   // Evaluate a top-level expression into an anonymous function.
   if (auto expr = parse_top_level_expression()) {
     if (expr->codegen()) {
@@ -509,7 +460,8 @@ static void handle_top_level_expression() {
 
       auto fp = expr_symbol.getAddress().toPtr<double (*)()>();
 
-      fprintf(stderr, DEBUG ? "\r \tEvaluated to: %lf\n> " : "\r \t%lf\n> ",
+
+      fprintf(stderr, DEBUG ? "\r  \tEvaluated to: %lf\n" REPL_STR : "\r  \t%lf\n" REPL_STR,
               fp());
       ExitOnErr(RT->remove());
     }
@@ -517,43 +469,4 @@ static void handle_top_level_expression() {
     // Skip token for error recovery.
     get_next_token();
   }
-}
-/// top ::= definition | external | expression | ';'
-static void main_loop() {
-  get_next_token();
-  while (true) {
-    switch (cur_tok) {
-    case tok_eof:
-      return;
-    case ';': // ignore top-level semicolons.
-      get_next_token();
-      break;
-    case tok_def:
-      handle_definition();
-      break;
-    case tok_extern:
-      handle_extern();
-      break;
-    default:
-      handle_top_level_expression();
-      break;
-    }
-  }
-}
-
-int main() {
-  InitializeNativeTarget();
-  InitializeNativeTargetAsmPrinter();
-  InitializeNativeTargetAsmParser();
-
-  TheJIT = ExitOnErr(KaleidoscopeJIT::Create());
-  initialize_modules_and_managers();
-
-  std::ifstream standard_lib("lib/std.kl");
-  lex_iterator = std::istream_iterator<char>(standard_lib >> std::noskipws);
-
-  fprintf(stderr, "> ");
-  main_loop(); // load standard library
-
-  return 0;
 }

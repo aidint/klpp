@@ -1,22 +1,7 @@
 #include "ast.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/IR/Instructions.h"
 
-std::unique_ptr<LLVMContext> TheContext;
-std::unique_ptr<IRBuilder<>> Builder;
-std::unique_ptr<Module> TheModule;
-std::map<std::string, AllocaInst *> NamedValues;
-std::unique_ptr<KaleidoscopeJIT> TheJIT;
-std::unique_ptr<FunctionPassManager> TheFPM;
-std::unique_ptr<LoopAnalysisManager> TheLAM;
-std::unique_ptr<FunctionAnalysisManager> TheFAM;
-std::unique_ptr<CGSCCAnalysisManager> TheCGAM;
-std::unique_ptr<ModuleAnalysisManager> TheMAM;
-std::unique_ptr<PassInstrumentationCallbacks> ThePIC;
-std::unique_ptr<StandardInstrumentations> TheSI;
 std::map<std::string, std::unique_ptr<PrototypeAST>> FunctionProtos;
 std::map<std::string, std::unique_ptr<ResourceTrackerSP>> FunctionRTs;
-ExitOnError ExitOnErr;
 
 ExprAST::~ExprAST() = default;
 NumberExprAST::NumberExprAST(double Val) : ExprAST(NumberExpr), Val(Val) {}
@@ -79,21 +64,3 @@ ForExprAST::ForExprAST(std::string VariableName, std::unique_ptr<ExprAST> Start,
 
 WithExprAST::WithExprAST(VariableVector Variables, std::unique_ptr<ExprAST> Body)
     : ExprAST(WithExpr), Variables(std::move(Variables)), Body(std::move(Body)) {}
-
-std::unique_ptr<ExprAST> log_error(const char *Str) {
-  fprintf(stderr, "\rError: %s\n> ", Str);
-  return nullptr;
-}
-
-// Binary Expression Operations
-//
-std::map<std::string, int> BINOP_PRECEDENCE = {
-    {"=", 2}, {"<", 10}, {">", 10}, {"+", 20}, {"-", 20}, {"*", 40},
-};
-
-AllocaInst *create_entry_block_alloca(Function *function, StringRef var_name) {
-  IRBuilder<> temp_builder(&function->getEntryBlock(),
-                           function->getEntryBlock().begin());
-  return temp_builder.CreateAlloca(Type::getDoubleTy(*TheContext), nullptr,
-                                   var_name);
-}
