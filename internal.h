@@ -32,13 +32,17 @@ extern std::unique_ptr<PassInstrumentationCallbacks> ThePIC;
 extern std::unique_ptr<StandardInstrumentations> TheSI;
 extern ExitOnError ExitOnErr;
 
+extern TargetMachine * TheTargetMachine;
+
 extern std::map<std::string, int> BINOP_PRECEDENCE;
 
 AllocaInst *create_entry_block_alloca(Function *function, StringRef var_name);
-void initialize_modules_and_managers();
+void initialize_modules_and_managers_for_jit();
 
 inline void set_lex_source(std::unique_ptr<std::istream> source_stream) {
   TheSource->set_source(std::move(source_stream));
 }
+
+void initialize_module_for_compilation();
 
 #endif

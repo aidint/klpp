@@ -1,7 +1,7 @@
 #include "ast.h"
 
 std::map<std::string, std::unique_ptr<PrototypeAST>> FunctionProtos;
-std::map<std::string, std::unique_ptr<ResourceTrackerSP>> FunctionRTs;
+std::map<std::string, ResourceTrackerSP *> FunctionRTs;
 
 ExprAST::~ExprAST() = default;
 NumberExprAST::NumberExprAST(double Val) : ExprAST(NumberExpr), Val(Val) {}
@@ -62,5 +62,7 @@ ForExprAST::ForExprAST(std::string VariableName, std::unique_ptr<ExprAST> Start,
       Condition(std::move(Condition)), Step(std::move(Step)),
       Body(std::move(Body)) {}
 
-WithExprAST::WithExprAST(VariableVector Variables, std::unique_ptr<ExprAST> Body)
-    : ExprAST(WithExpr), Variables(std::move(Variables)), Body(std::move(Body)) {}
+WithExprAST::WithExprAST(VariableVector Variables,
+                         std::unique_ptr<ExprAST> Body)
+    : ExprAST(WithExpr), Variables(std::move(Variables)),
+      Body(std::move(Body)) {}

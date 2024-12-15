@@ -1,8 +1,8 @@
-#include "include/Kaleidoscope.h"
 #include "internal.h"
 #include "lex.h"
 #include "parser.h"
 #include "llvm/Support/TargetSelect.h"
+#include "llvm/IR/LegacyPassManager.h"
 #include <fstream>
 #include <sstream>
 
@@ -17,10 +17,9 @@ int get_unit(std::stringstream &ss) {
     if (c == '#')
       in_comment = true;
     if (c == '\n') {
-      fprintf(stderr, REPL_STR);
       in_comment = false;
     }
-    if ((!in_comment && c == ';')) 
+    if ((!in_comment && c == ';'))
       return 0;
     if (c == EOF)
       return EOF;
@@ -55,11 +54,13 @@ int main() {
   InitializeNativeTarget();
   InitializeNativeTargetAsmPrinter();
   InitializeNativeTargetAsmParser();
+  InitializeAllTargetInfos();
+  InitializeAllTargets();
+  InitializeAllTargetMCs();
+  InitializeAllAsmParsers();
+  InitializeAllAsmPrinters();
 
-  TheJIT = ExitOnErr(KaleidoscopeJIT::Create());
-  initialize_modules_and_managers_for_jit();
-
-  fprintf(stderr, REPL_STR);
+  initialize_module_for_compilation();
 
   set_lex_source(std::make_unique<std::fstream>("lib/std.kl"));
   handle_unit();
@@ -72,6 +73,29 @@ int main() {
     ss.str("");
     ss.clear();
   }
+
+  Function * F = 
+
+  auto file_name = "output.o";
+  std::error_code EC;
+  raw_fd_ostream dest(file_name, EC, sys::fs::OF_None);
+
+  if (EC) {
+    errs() << "Could not open file: " << EC.message();
+    return 1;
+  }
+
+  legacy::PassManager pass;
+  auto file_type = CodeGenFileType::ObjectFile;
+
+  if (TheTargetMachine->addPassesToEmitFile(pass, dest, nullptr, file_type)){
+    errs() << "TheTargetMachine can't emit a file of this type";
+    return 1;
+  }
+
+  pass.run(*TheModule);
+  dest.flush();
+
 
   return 0;
 }

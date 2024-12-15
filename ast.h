@@ -1,8 +1,8 @@
 #ifndef AST_H
 #define AST_H
 
-#include "llvm/Analysis/LoopAnalysisManager.h"
 #include "internal.h"
+#include "llvm/Analysis/LoopAnalysisManager.h"
 #include "llvm/ExecutionEngine/Orc/Core.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/LLVMContext.h"
@@ -162,7 +162,7 @@ public:
 // central maps
 //
 extern std::map<std::string, std::unique_ptr<PrototypeAST>> FunctionProtos;
-extern std::map<std::string, std::unique_ptr<ResourceTrackerSP>> FunctionRTs;
+extern std::map<std::string, ResourceTrackerSP *> FunctionRTs;
 
 // Error handling
 

@@ -171,8 +171,9 @@ Function *FunctionAST::codegen() {
   if (Value *ret_value = Body->codegen()) {
     Builder->CreateRet(ret_value);
     verifyFunction(*F);
+#ifndef COMPILATION
     TheFPM->run(*F, *TheFAM);
-
+#endif
     if (p.is_binary_op())
       BINOP_PRECEDENCE[p.get_operator_name()] = p.get_binary_precedence();
     return F;

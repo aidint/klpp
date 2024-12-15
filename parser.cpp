@@ -415,14 +415,14 @@ void handle_definition() {
         IR->print(errs());
         fprintf(stderr, "\n");
       }
-
-      auto RT = std::make_unique<ResourceTrackerSP>(
-          TheJIT->getMainJITDylib().createResourceTracker());
+#ifndef COMPILATION
+      auto RT = TheJIT->getMainJITDylib().createResourceTracker();
       auto TSM = ThreadSafeModule(std::move(TheModule), std::move(TheContext));
-      ExitOnErr(TheJIT->addModule(std::move(TSM), *RT));
-      initialize_modules_and_managers();
+      ExitOnErr(TheJIT->addModule(std::move(TSM), RT));
+      initialize_modules_and_managers_for_jit();
 
-      FunctionRTs[function_name] = std::move(RT);
+      FunctionRTs[function_name] = &RT;
+#endif
     }
   } else {
     // Skip token for error recovery.
@@ -451,19 +451,20 @@ void handle_top_level_expression() {
   if (auto expr = parse_top_level_expression()) {
     if (expr->codegen()) {
 
+#ifndef COMPILATION
       auto RT = TheJIT->getMainJITDylib().createResourceTracker();
       auto TSM = ThreadSafeModule(std::move(TheModule), std::move(TheContext));
       ExitOnErr(TheJIT->addModule(std::move(TSM), RT));
-      initialize_modules_and_managers();
+      initialize_modules_and_managers_for_jit();
 
       auto expr_symbol = ExitOnErr(TheJIT->lookup(ANON_FUNCTION));
 
       auto fp = expr_symbol.getAddress().toPtr<double (*)()>();
 
-
       fprintf(stderr, DEBUG ? "\r  \tEvaluated to: %lf\n" : "\r  \t%lf\n",
               fp());
       ExitOnErr(RT->remove());
+#endif
     }
   } else {
     // Skip token for error recovery.
