@@ -1,7 +1,11 @@
 *.out
+*.o
+*.so
 *.dSYM
 .cache/
 lexer
 kpp
 kppc
 compile_commands.json
+test.kl
+test.out

@@ -106,7 +106,7 @@ int gettok() {
   if (isnumber(last_char) || last_char == '.') {
     std::string number_string;
     bool has_point = last_char == '.';
-    bool has_second_point;
+    bool has_second_point = false;
     number_string = last_char;
 
     while (isnumber((last_char = get_char())) || last_char == '.') {

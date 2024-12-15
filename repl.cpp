@@ -61,6 +61,9 @@ int main() {
 
   fprintf(stderr, REPL_STR);
 
+  set_lex_source(std::make_unique<std::fstream>("lib/core.kl"));
+  handle_unit();
+
   set_lex_source(std::make_unique<std::fstream>("lib/std.kl"));
   handle_unit();
 

@@ -26,7 +26,6 @@ Function *get_function(const std::string &name) {
   return nullptr;
 }
 
-
 Value *NumberExprAST::codegen() {
   return ConstantFP::get(*TheContext, APFloat(Val));
 }
@@ -126,9 +125,17 @@ Value *CallExprAST::codegen() {
 }
 
 Function *PrototypeAST::codegen() {
-  std::vector<Type *> Doubles(Args.size(), Type::getDoubleTy(*TheContext));
-  FunctionType *FT =
-      FunctionType::get(Type::getDoubleTy(*TheContext), Doubles, false);
+
+  FunctionType *FT;
+  if (Name == "main") {
+    if (Args.size() != 0)
+      return (Function *)log_error_v("`main` function should not have arguments");
+    FT = FunctionType::get(Type::getDoubleTy(*TheContext), false);
+  }
+  else {
+    std::vector<Type *> Doubles(Args.size(), Type::getDoubleTy(*TheContext));
+    FT = FunctionType::get(Type::getDoubleTy(*TheContext), Doubles, false);
+  }
   Function *F =
       Function::Create(FT, Function::ExternalLinkage, Name, TheModule.get());
 

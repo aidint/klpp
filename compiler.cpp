@@ -1,6 +1,7 @@
 #include "internal.h"
 #include "lex.h"
 #include "parser.h"
+#include "llvm/Support/CodeGen.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include <fstream>
@@ -62,7 +63,7 @@ int main() {
 
   initialize_module_for_compilation();
 
-  set_lex_source(std::make_unique<std::fstream>("lib/std.kl"));
+  set_lex_source(std::make_unique<std::fstream>("lib/core.kl"));
   handle_unit();
 
   auto str_stream = std::make_unique<std::stringstream>();
@@ -73,8 +74,6 @@ int main() {
     ss.str("");
     ss.clear();
   }
-
-  Function * F = 
 
   auto file_name = "output.o";
   std::error_code EC;

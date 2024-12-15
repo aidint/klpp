@@ -1,7 +1,6 @@
 #ifndef AST_H
 #define AST_H
 
-#include "internal.h"
 #include "llvm/Analysis/LoopAnalysisManager.h"
 #include "llvm/ExecutionEngine/Orc/Core.h"
 #include "llvm/IR/Instructions.h"
