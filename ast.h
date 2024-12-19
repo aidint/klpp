@@ -1,6 +1,7 @@
 #ifndef AST_H
 #define AST_H
 
+#include "lex.h"
 #include "llvm/Analysis/LoopAnalysisManager.h"
 #include "llvm/ExecutionEngine/Orc/Core.h"
 #include "llvm/IR/Instructions.h"
@@ -33,14 +34,19 @@ public:
 
 private:
   const ExprKind Kind;
+  SourceLocation location;
 
 public:
   ExprKind getKind() const { return Kind; }
 
-  ExprAST(ExprKind Kind) : Kind(Kind) {}
+  ExprAST(ExprKind Kind, SourceLocation location = cur_loc)
+      : Kind(Kind), location(location) {}
 
   virtual ~ExprAST();
   virtual Value *codegen() = 0;
+
+  int get_line() const { return location.line; }
+  int get_col() const { return location.col; }
 };
 
 class NumberExprAST : public ExprAST {
@@ -67,8 +73,8 @@ class BinaryExprAST : public ExprAST {
   std::unique_ptr<ExprAST> LHS, RHS;
 
 public:
-  BinaryExprAST(std::string Op, std::unique_ptr<ExprAST> LHS,
-                std::unique_ptr<ExprAST> RHS);
+  BinaryExprAST(SourceLocation binop_loc, std::string Op,
+                std::unique_ptr<ExprAST> LHS, std::unique_ptr<ExprAST> RHS);
   Value *codegen() override;
   static bool classof(const ExprAST *E) { return E->getKind() == BinaryExpr; }
 };
@@ -88,7 +94,7 @@ class CallExprAST : public ExprAST {
   std::vector<std::unique_ptr<ExprAST>> Args;
 
 public:
-  CallExprAST(const std::string &Callee,
+  CallExprAST(SourceLocation FnNameLoc, const std::string &Callee,
               std::vector<std::unique_ptr<ExprAST>> Args);
   Value *codegen() override;
   static bool classof(const ExprAST *E) { return E->getKind() == CallExpr; }
@@ -99,9 +105,10 @@ class PrototypeAST {
   std::vector<std::string> Args;
   bool IsOperator;
   unsigned Precedence;
+  unsigned LocationLine;
 
 public:
-  PrototypeAST(const std::string &Name, std::vector<std::string> Args,
+  PrototypeAST(SourceLocation DefLoc, const std::string &Name, std::vector<std::string> Args,
                bool IsOperator = false, unsigned Prec = 0);
   int get_arg_size() const { return Args.size(); }
   const std::string &get_name() const;
@@ -110,6 +117,8 @@ public:
   bool is_binary_op() const;
   unsigned get_binary_precedence() const;
   Function *codegen();
+
+  int get_line() const { return LocationLine; }
 };
 
 class FunctionAST {

@@ -1,4 +1,5 @@
 #include "ast.h"
+#include "debugger.h"
 #include "internal.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/IR/BasicBlock.h"
@@ -27,6 +28,7 @@ Function *get_function(const std::string &name) {
 }
 
 Value *NumberExprAST::codegen() {
+  // DebugInfoInserter::emit_location(this);
   return ConstantFP::get(*TheContext, APFloat(Val));
 }
 
@@ -34,6 +36,8 @@ Value *VariableExprAST::codegen() {
   AllocaInst *A = NamedValues[Name];
   if (!A)
     return log_error_v("Unknown variable name");
+
+  // DebugInfoInserter::emit_location(this);
   return Builder->CreateLoad(Type::getDoubleTy(*TheContext), A, Name.c_str());
 }
 
@@ -57,6 +61,7 @@ Value *BinaryExprAST::codegen() {
       return log_error_v(
           std::format("Variable {} does not exist.", LHSE->get_name()).c_str());
 
+    DebugInfoInserter::emit_location(this);
     Builder->CreateStore(val, variable);
     return val; // assignment returns value as C and C++
   }
@@ -65,6 +70,8 @@ Value *BinaryExprAST::codegen() {
   Value *R = RHS->codegen();
   if (!L || !R)
     return nullptr;
+
+  DebugInfoInserter::emit_location(this);
 
   if (Op == "+")
     return Builder->CreateFAdd(L, R, "addtmp");
@@ -101,6 +108,7 @@ Value *UnaryExprAST::codegen() {
   if (!operand)
     return nullptr;
 
+  DebugInfoInserter::emit_location(this);
   return Builder->CreateCall(f, operand);
 }
 
@@ -114,6 +122,8 @@ Value *CallExprAST::codegen() {
     return log_error_v(
         std::format("Incorrect number of arguments for function {}", Callee)
             .c_str());
+
+  DebugInfoInserter::emit_location(this);
 
   std::vector<Value *> ArgsV;
   for (auto &expr : Args) {
@@ -129,10 +139,10 @@ Function *PrototypeAST::codegen() {
   FunctionType *FT;
   if (Name == "main") {
     if (Args.size() != 0)
-      return (Function *)log_error_v("`main` function should not have arguments");
-    FT = FunctionType::get(Type::getDoubleTy(*TheContext), false);
-  }
-  else {
+      return (Function *)log_error_v(
+          "`main` function should not have arguments");
+    FT = FunctionType::get(Type::getInt32Ty(*TheContext), false);
+  } else {
     std::vector<Type *> Doubles(Args.size(), Type::getDoubleTy(*TheContext));
     FT = FunctionType::get(Type::getDoubleTy(*TheContext), Doubles, false);
   }
@@ -142,6 +152,9 @@ Function *PrototypeAST::codegen() {
   unsigned idx = 0;
   for (auto &arg : F->args())
     arg.setName(Args[idx++]);
+
+  if (is_binary_op())
+    BINOP_PRECEDENCE[get_operator_name()] = get_binary_precedence();
 
   return F;
 }
@@ -166,30 +179,41 @@ Function *FunctionAST::codegen() {
 
   BasicBlock *BB = BasicBlock::Create(*TheContext, "entry", F);
   Builder->SetInsertPoint(BB);
+  DebugInfoInserter DII;
 
+  DII.insert_subprogram(p.get_line(), F);
   // Record the function arguments in the NamedValues map.
   NamedValues.clear();
   for (auto &arg : F->args()) {
     AllocaInst *arg_alloca = create_entry_block_alloca(F, arg.getName());
+    DII.insert_function_parameter(p.get_line(), arg, arg_alloca);
     Builder->CreateStore(&arg, arg_alloca);
     NamedValues[std::string(arg.getName())] = arg_alloca;
   }
 
+  // DII.emit_location(Body.get());
   if (Value *ret_value = Body->codegen()) {
-    Builder->CreateRet(ret_value);
+
+    if (F->getName() == "main")
+      Builder->CreateRet(ConstantInt::get(*TheContext, APInt(32, 0, true)));
+    else
+      Builder->CreateRet(ret_value);
+
     verifyFunction(*F);
-#ifndef COMPILATION
-    TheFPM->run(*F, *TheFAM);
-#endif
-    if (p.is_binary_op())
-      BINOP_PRECEDENCE[p.get_operator_name()] = p.get_binary_precedence();
+    if (!DEBUG)
+      TheFPM->run(*F, *TheFAM);
+
     return F;
   }
+  DII.reset_scope();
   F->eraseFromParent();
   return nullptr;
 }
 
 Value *IfExprAST::codegen() {
+
+  DebugInfoInserter::emit_location(this);
+
   Value *cond_val = Condition->codegen();
 
   if (!cond_val)
@@ -236,6 +260,8 @@ Value *ForExprAST::codegen() {
 
   AllocaInst *var_alloc = create_entry_block_alloca(
       Builder->GetInsertBlock()->getParent(), VarName);
+
+  DebugInfoInserter::emit_location(this);
 
   Value *start = Start->codegen();
   if (!start)
@@ -317,6 +343,8 @@ Value *WithExprAST::codegen() {
     old_values.push_back(NamedValues[variable_name]);
     NamedValues[variable_name] = ptr;
   }
+
+  DebugInfoInserter::emit_location(this);
 
   Value *body = Body->codegen();
   if (!body)

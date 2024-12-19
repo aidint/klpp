@@ -9,6 +9,10 @@ double num_val;
 static int buf[BUFSIZE];
 static int bufp;
 std::unique_ptr<SourceReader> TheSource = std::make_unique<SourceReader>();
+SourceLocation cur_loc;
+static SourceLocation lex_loc = {1, 0};
+
+void reset_lex_loc() { lex_loc = {1, 0}; }
 
 static bool is_viable_operator_char(char c) {
   if (c == '!' || c == '$' || c == '%' || c == '&' || c == ':' || c == '*' ||
@@ -28,10 +32,19 @@ static bool is_viable_operator_char(char c) {
 }
 
 static int get_char() {
+  int c;
   if (bufp)
-    return buf[--bufp];
+    c = buf[--bufp];
+  else
+    c = TheSource->get_next_char();
 
-  return TheSource->get_next_char();
+  if (c == '\n' || c == '\r') {
+    lex_loc.line++;
+    lex_loc.col = 0;
+  } else
+    lex_loc.col++;
+
+  return c;
 }
 
 // {binary | unary}<operator_name>{ }*(.*)
@@ -71,6 +84,8 @@ int gettok() {
   while (isspace(last_char))
     last_char = get_char();
 
+  cur_loc = lex_loc;
+
   // State = Identifier
   if (isalpha(last_char)) {
     identifier_str = last_char;
@@ -99,7 +114,8 @@ int gettok() {
     } else if (identifier_str == "unary") {
       last_char = get_operator(last_char);
       return operator_name.empty() ? tok_identifier : tok_unary;
-    } else if (identifier_str == "with") return tok_with;
+    } else if (identifier_str == "with")
+      return tok_with;
     return tok_identifier;
   }
 

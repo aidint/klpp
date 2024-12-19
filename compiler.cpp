@@ -1,9 +1,13 @@
+#include "debugger.h"
 #include "internal.h"
 #include "lex.h"
 #include "parser.h"
+#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/Metadata.h"
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Support/TargetSelect.h"
-#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/TargetParser/Host.h"
+#include <cstdio>
 #include <fstream>
 #include <sstream>
 
@@ -63,7 +67,15 @@ int main() {
 
   initialize_module_for_compilation();
 
-  set_lex_source(std::make_unique<std::fstream>("lib/core.kl"));
+  if (DEBUG) {
+    auto file_name = std::getenv("SOURCE_FILE_NAME");
+    auto file_dir = std::getenv("SOURCE_FILE_DIR");
+    KSDbgInfo.TheCU = DBuilder->createCompileUnit(
+        dwarf::DW_LANG_C, DBuilder->createFile(file_name, file_dir),
+        "K++ Compiler", false, "", 0);
+  }
+
+  set_lex_source(std::make_unique<std::fstream>("lib/core.hkl"));
   handle_unit();
 
   auto str_stream = std::make_unique<std::stringstream>();
@@ -75,7 +87,7 @@ int main() {
     ss.clear();
   }
 
-  auto file_name = "output.o";
+  auto file_name = "output.s";
   std::error_code EC;
   raw_fd_ostream dest(file_name, EC, sys::fs::OF_None);
 
@@ -85,16 +97,16 @@ int main() {
   }
 
   legacy::PassManager pass;
-  auto file_type = CodeGenFileType::ObjectFile;
+  auto file_type = CodeGenFileType::AssemblyFile;
 
-  if (TheTargetMachine->addPassesToEmitFile(pass, dest, nullptr, file_type)){
+  if (TheTargetMachine->addPassesToEmitFile(pass, dest, nullptr, file_type)) {
     errs() << "TheTargetMachine can't emit a file of this type";
     return 1;
   }
-
+  if (DBuilder)
+    DBuilder->finalize();
   pass.run(*TheModule);
   dest.flush();
-
 
   return 0;
 }

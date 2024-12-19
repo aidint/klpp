@@ -1,5 +1,5 @@
 CXX = clang++
-FILES = parser.cpp lex.cpp ast.cpp codegen.cpp external.cpp internal.cpp
+FILES = parser.cpp lex.cpp ast.cpp codegen.cpp lib/external.cpp internal.cpp debugger.cpp
 CXXFLAGS = -O3 -Wall -std=c++20
 DEBUGFLAGS = -g -O0 -Wall -std=c++20
 LLVM_CONF_KPPC = llvm-config --cxxflags --ldflags --system-libs --libs all
@@ -15,9 +15,15 @@ LLVM_CONF = $(LLVM_CONF_KPP)
 endif
 
 all: kppc kpp
-	./kppc < lib/std.kl
-	clang++ -fpic -shared -o lib/std.so output.o external.cpp
-	rm -r output.o
+	./kppc < lib/core.kl
+	mv output.s lib/core.s
+	./kppc < lib/builtin.kl
+	mv output.s lib/builtin.s
+	cd lib; clang++ -c core.s builtin.s external.cpp
+	rm -r lib/*.s
+	ar rcs lib/klpp.a lib/*.o
+	rm -r lib/*.o
+	chmod +x kl++
 
 kppc: 
 	$(CXX) `$(LLVM_CONF_KPPC)` $(CXXFLAGS) -DCOMPILATION=1 compiler.cpp $(FILES) -o kppc

@@ -1,9 +1,3 @@
-# some extra stuff
-
-extern putchard(x)
-extern print(x)
-extern printd(x)
-
 def printdensity(d)
   if d > 8 then
     putchard(32)  # ' '
@@ -29,12 +23,6 @@ def mandelconverger(real imag iters creal cimag)
 def mandelconverge(real imag)
   mandelconverger(real, imag, 0, real, imag)
 
-def testseg(xmin xmax xstep)
-  for x = xmin, x < xmax, xstep do
-    for y = xmin, y < xmax, xstep do printdensity(x + y) end
-  end
-
-extern print(x)
 # Compute and plot the mandelbrot set with the specified 2 dimensional range
 # info.
 def mandelhelp(xmin xmax xstep   ymin ymax ystep)

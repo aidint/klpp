@@ -4,6 +4,11 @@
 #include <memory>
 #include <string>
 
+struct SourceLocation {
+  int line;
+  int col;
+};
+
 class SourceReader {
   std::unique_ptr<std::istream> source;
 
@@ -53,11 +58,13 @@ enum Token {
   tok_with = -15
 };
 
+void reset_lex_loc();
 int gettok();
 
 extern std::string identifier_str; // Filled in if tok_identifier
 extern std::string operator_name;  // Filled in if tok_unary or tok_binary
 extern double num_val;             // Filled in if tok_number
 extern std::unique_ptr<SourceReader> TheSource;
+extern SourceLocation cur_loc;
 
 #endif

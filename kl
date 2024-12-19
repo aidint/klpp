@@ -1,9 +1,0 @@
-#!/bin/bash
-
-set -euo pipefail
-
-cat $1 | ./kppc
-
-clang++ output.o lib/std.so -o $2
-
-rm -r output.o

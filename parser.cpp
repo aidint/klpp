@@ -176,6 +176,7 @@ static std::unique_ptr<ExprAST> parse_with_expr() {
 ///   ::= identifier '(' expression* ')' // function call
 static std::unique_ptr<ExprAST> parse_identifier_expr() {
   std::string id_name = identifier_str;
+  auto fn_call_loc = cur_loc;
 
   get_next_token(); // eat identifier.
 
@@ -204,7 +205,7 @@ static std::unique_ptr<ExprAST> parse_identifier_expr() {
   // Eat the ')'.
   get_next_token();
 
-  return std::make_unique<CallExprAST>(id_name, std::move(args));
+  return std::make_unique<CallExprAST>(fn_call_loc, id_name, std::move(args));
 }
 
 /// primary
@@ -282,6 +283,7 @@ static std::unique_ptr<ExprAST> parse_binop_rhs(int expr_prec,
       return LHS;
     // Okay, we know this is a binop.
     std::string binop = operator_name;
+    SourceLocation binop_loc = cur_loc;
     get_next_token(); // eat binop
 
     // Parse the primary expression after the binary operator.
@@ -299,7 +301,7 @@ static std::unique_ptr<ExprAST> parse_binop_rhs(int expr_prec,
         return nullptr;
     }
     LHS =
-        std::make_unique<BinaryExprAST>(binop, std::move(LHS), std::move(RHS));
+        std::make_unique<BinaryExprAST>(binop_loc, binop, std::move(LHS), std::move(RHS));
   }
 }
 
@@ -320,6 +322,7 @@ static std::unique_ptr<ExprAST> parse_expression() {
 static std::unique_ptr<PrototypeAST> parse_prototype() {
 
   std::string fn_name;
+  SourceLocation def_loc = cur_loc;
   unsigned char kind = 0;   // 0 = identifier, 1 = unary, 2 = binary
   unsigned precedence = 30; // default precedence
 
@@ -368,7 +371,7 @@ static std::unique_ptr<PrototypeAST> parse_prototype() {
   if (kind && arg_names.size() != kind)
     return log_error_p("Invalid number of operands for operator.");
 
-  return std::make_unique<PrototypeAST>(fn_name, std::move(arg_names),
+  return std::make_unique<PrototypeAST>(def_loc, fn_name, std::move(arg_names),
                                         kind != 0, precedence);
 }
 
@@ -393,9 +396,10 @@ static std::unique_ptr<PrototypeAST> parse_extern() {
 
 /// toplevelexpr ::= expression
 static std::unique_ptr<FunctionAST> parse_top_level_expression() {
+  SourceLocation def_loc = cur_loc;
   if (auto E = parse_expression()) {
     // Make an anonymous proto.
-    auto proto = std::make_unique<PrototypeAST>(ANON_FUNCTION,
+    auto proto = std::make_unique<PrototypeAST>(def_loc, ANON_FUNCTION,
                                                 std::vector<std::string>());
     return std::make_unique<FunctionAST>(std::move(proto), std::move(E));
   }
@@ -410,7 +414,7 @@ void handle_definition() {
   if (auto func = parse_definition()) {
     std::string function_name = func->get_name();
     if (auto *IR = func->codegen()) {
-      if (DEBUG) {
+      if (VERBOSE) {
         fprintf(stderr, "Read function definition:\n");
         IR->print(errs());
         fprintf(stderr, "\n");
@@ -433,7 +437,7 @@ void handle_definition() {
 void handle_extern() {
   if (auto ext = parse_extern()) {
     if (auto *extIR = ext->codegen()) {
-      if (DEBUG) {
+      if (VERBOSE) {
         fprintf(stderr, "Read a function declaration:\n");
         extIR->print(errs());
         fprintf(stderr, "\n");
@@ -461,7 +465,7 @@ void handle_top_level_expression() {
 
       auto fp = expr_symbol.getAddress().toPtr<double (*)()>();
 
-      fprintf(stderr, DEBUG ? "\r  \tEvaluated to: %lf\n" : "\r  \t%lf\n",
+      fprintf(stderr, VERBOSE ? "\r  \tEvaluated to: %lf\n" : "\r  \t%lf\n",
               fp());
       ExitOnErr(RT->remove());
 #endif

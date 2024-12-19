@@ -1,0 +1,12 @@
+# standard library headers
+
+extern putchard(x)
+extern print(x)
+extern printd(x)
+extern unary!(v)
+extern unary-(v)
+extern binary> 10 (LHS RHS)
+extern binary| 5 (LHS RHS)
+extern binary& 6 (LHS RHS)
+extern binary== 9 (LHS RHS)
+extern binary: 1 (LHS RHS);

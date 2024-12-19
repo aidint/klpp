@@ -1,0 +1,26 @@
+#!/bin/bash
+
+set -eo pipefail
+
+if [ -z "$1" ]; then
+  ./kpp
+else
+
+  if [ "$1" == "-d" ]; then
+    export SOURCE_FILE_NAME=`basename -- $2` SOURCE_FILE_DIR=$(realpath `dirname -- $2`) DEBUG=1
+    exec 3< $2
+    OUTPUT="$3"
+    GFLAG=-g
+  else
+    exec 3< $1
+    OUTPUT="$2"
+  fi
+
+  cat <&3 | ./kppc
+
+  exec 3<&-
+
+  clang++ ${GFLAG} output.s lib/klpp.a -o ${OUTPUT}
+
+  # rm -r output.s
+fi

@@ -61,10 +61,13 @@ int main() {
 
   fprintf(stderr, REPL_STR);
 
+  set_lex_source(std::make_unique<std::fstream>("lib/core.hkl"));
+  handle_unit();
+
   set_lex_source(std::make_unique<std::fstream>("lib/core.kl"));
   handle_unit();
 
-  set_lex_source(std::make_unique<std::fstream>("lib/std.kl"));
+  set_lex_source(std::make_unique<std::fstream>("lib/builtin.kl"));
   handle_unit();
 
   auto str_stream = std::make_unique<std::stringstream>();

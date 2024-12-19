@@ -1,14 +1,18 @@
 #include "internal.h"
+#include "llvm/MC/TargetRegistry.h"
+#include "llvm/Support/CodeGen.h"
 #include "llvm/Target/TargetMachine.h"
+#include "llvm/Target/TargetOptions.h"
+#include "llvm/TargetParser/Host.h"
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/Scalar/GVN.h"
 #include "llvm/Transforms/Scalar/Reassociate.h"
 #include "llvm/Transforms/Scalar/SimplifyCFG.h"
 #include "llvm/Transforms/Utils/Mem2Reg.h"
-#include "llvm/MC/TargetRegistry.h"
-#include "llvm/Support/CodeGen.h"
-#include "llvm/Target/TargetOptions.h"
-#include "llvm/TargetParser/Host.h"
+#include <cstdlib>
+#include <cstring>
+
+bool DEBUG = false;
 
 std::unique_ptr<LLVMContext> TheContext;
 std::unique_ptr<IRBuilder<>> Builder;
@@ -25,6 +29,7 @@ std::unique_ptr<StandardInstrumentations> TheSI;
 ExitOnError ExitOnErr;
 
 TargetMachine *TheTargetMachine;
+std::unique_ptr<DIBuilder> DBuilder;
 // Binary Expression Operations
 //
 std::map<std::string, int> BINOP_PRECEDENCE = {
@@ -42,7 +47,7 @@ void initialize_modules_and_managers_for_jit() {
   // Open a new context and module.
 
   TheContext = std::make_unique<LLVMContext>();
-  TheModule = std::make_unique<Module>("my first jit", *TheContext);
+  TheModule = std::make_unique<Module>("K++ JIT", *TheContext);
 
   TheModule->setDataLayout(TheJIT->getDataLayout());
 
@@ -89,16 +94,15 @@ void initialize_module_for_compilation() {
   auto features = "";
 
   TargetOptions opt;
-  TheTargetMachine = target->createTargetMachine(target_triple, CPU,
-                                                    features, opt, Reloc::PIC_);
+  TheTargetMachine = target->createTargetMachine(target_triple, CPU, features,
+                                                 opt, Reloc::PIC_);
   // Open a new context and module.
 
   TheContext = std::make_unique<LLVMContext>();
-  TheModule = std::make_unique<Module>("my first compiler", *TheContext);
+  TheModule = std::make_unique<Module>("K++ Compiler", *TheContext);
 
   TheModule->setDataLayout(TheTargetMachine->createDataLayout());
   TheModule->setTargetTriple(target_triple);
-
 
   // TheModule->setDataLayout(TheJIT->getDataLayout());
 
@@ -128,4 +132,14 @@ void initialize_module_for_compilation() {
 
   // Create a new builder for the module.
   Builder = std::make_unique<IRBuilder<>>(*TheContext);
+
+  auto debug_env = std::getenv("DEBUG");
+  if (debug_env && std::strcmp(debug_env, "1") == 0) {
+    DEBUG = true;
+    DBuilder = std::make_unique<DIBuilder>(*TheModule);
+    TheModule->addModuleFlag(Module::Warning, "Debug Info Version",
+                             DEBUG_METADATA_VERSION);
+    if (Triple(sys::getProcessTriple()).isOSDarwin())
+      TheModule->addModuleFlag(Module::Warning, "Dwarf Version", 2);
+  }
 }
