@@ -1,4 +1,4 @@
-#include "include/Kaleidoscope.h"
+#include "Kaleidoscope.h"
 #include "internal.h"
 #include "lex.h"
 #include "parser.h"

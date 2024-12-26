@@ -28,7 +28,6 @@ Function *get_function(const std::string &name) {
 }
 
 Value *NumberExprAST::codegen() {
-  // DebugInfoInserter::emit_location(this);
   return ConstantFP::get(*TheContext, APFloat(Val));
 }
 
@@ -37,7 +36,6 @@ Value *VariableExprAST::codegen() {
   if (!A)
     return log_error_v("Unknown variable name");
 
-  // DebugInfoInserter::emit_location(this);
   return Builder->CreateLoad(Type::getDoubleTy(*TheContext), A, Name.c_str());
 }
 

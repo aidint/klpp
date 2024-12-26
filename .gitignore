@@ -11,3 +11,4 @@ kppc
 tests
 compile_commands.json
 test.kl
+build/
