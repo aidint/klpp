@@ -1,5 +1,4 @@
 .clangd
 .cache/
-tests
-test.kl
+test*
 build/
