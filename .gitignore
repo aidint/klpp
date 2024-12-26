@@ -1,14 +1,5 @@
-*.out
-*.o
-*.so
-*.s
-*.a
-*.dSYM
+.clangd
 .cache/
-lexer
-kpp
-kppc
 tests
-compile_commands.json
 test.kl
 build/

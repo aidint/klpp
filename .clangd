@@ -1,2 +1,0 @@
-CompileFlags:
-  Add: [-std=c++20, -I/opt/homebrew/opt/llvm/include, -I/opt/homebrew/opt/llvm/include/c++/v1, -I/Users/aidin/Documents/code/mine/learn/c++/llvm/include]
