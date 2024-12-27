@@ -1,6 +1,6 @@
 # Kl++ (Kaleidoscope++)
 
-Kl++ (Kaleidoscope++) is a minimal functional programming language designed to extend the LLVM-based toy language [Kaleidoscope](https://github.com/llvm/llvm-project/tree/main/llvm/examples/Kaleidoscope). It offers both OCRJIT through a REPL interface and Ahead-of-Time (AOT) compilation. Additionally, Kl++ supports debugging, all while maintaining the simple, elegant design of the original Kaleidoscope.
+Kl++ (Kaleidoscope++) is a minimal functional programming language designed to extend the LLVM-based toy language [Kaleidoscope](https://github.com/llvm/llvm-project/tree/main/llvm/examples/Kaleidoscope). It offers both ORC JIT through a REPL interface and Ahead-of-Time (AOT) compilation. Additionally, Kl++ supports debugging, all while maintaining the simple, elegant design of the original Kaleidoscope.
 
 
 
